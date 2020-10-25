@@ -87,6 +87,7 @@
   <ItemGroup>
     <ClCompile Include="cunicode.cpp" />
     <ClCompile Include="CVTUTF.C" />
+    <ClCompile Include="ftpdir.cpp" />
     <ClCompile Include="multiserver.cpp" />
     <ClCompile Include="sftpfunc.cpp" />
     <ClCompile Include="sftpplug.cpp" />
@@ -96,6 +97,7 @@
     <ClInclude Include="cunicode.h" />
     <ClInclude Include="CVTUTF.H" />
     <ClInclude Include="fsplugin.h" />
+    <ClInclude Include="ftpdir.h" />
     <ClInclude Include="multiserver.h" />
     <ClInclude Include="sftpfunc.h" />
     <ClInclude Include="sshdynfunctions.h" />
