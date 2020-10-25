@@ -398,29 +398,47 @@ static void kbd_callback(const char *name,  int name_len,
              LIBSSH2_USERAUTH_KBDINT_RESPONSE *responses,
              void **abstract)
 {
+    char buf[1024];
+    char retbuf[256];
     for (int i = 0; i < num_prompts; i++) {
         // Special case: Pass the stored password as the first response to the interactive prompts
         // Note: We may get multiple calls to kbd_callback - this is tracked with "InteractivePasswordSent"
+        strlcpy(retbuf, prompts[i].text, min(prompts[i].length, sizeof(retbuf)-1));
+        ShowStatus(retbuf);
         pConnectSettings ConnectSettings = (pConnectSettings)*abstract;
-        if (ConnectSettings && (i == 0) && ConnectSettings->password[0] && !ConnectSettings->InteractivePasswordSent) {
+        BOOL autoSendPassword = (ConnectSettings && ConnectSettings->password[0] && !ConnectSettings->InteractivePasswordSent);
+        if (autoSendPassword) {
+            strlwr(retbuf);
+            // it must contain "pass"
+            if (strstr(retbuf, "pass") == NULL)
+                autoSendPassword = false;
+            // it must NOT contain "OATH" or "one time" or "one_time"
+            else if (strstr(retbuf, "OATH") || strstr(retbuf, "one time") || strstr(retbuf, "one-time"))
+                autoSendPassword = false;
+        }
+        if (autoSendPassword) {
             ConnectSettings->InteractivePasswordSent = true;
-            char* p = strstr(ConnectSettings->password,"\",\"");
+            char* p = strstr(ConnectSettings->password, "\",\"");
             int len = strlen(ConnectSettings->password);
             if (p && ConnectSettings->password[0] == '"' && ConnectSettings->password[len-1] == '"') {
                 // two passwords -> use second one!
                 ConnectSettings->password[len-1] = 0;
-                responses[0].text = _strdup(p + 3);
+                if (p[3] == 0)
+                    autoSendPassword = false;
+                else
+                    responses[i].text = _strdup(p + 3);
                 ConnectSettings->password[len-1] = '"';
             } else
-                responses[0].text = _strdup(ConnectSettings->password);
-            responses[0].length = (unsigned int)strlen(responses[0].text);
-        } else {
-            char buf[1024];
-            char retbuf[256];
+                responses[i].text = _strdup(ConnectSettings->password);
+            if (autoSendPassword) {
+                responses[i].length = (unsigned int)strlen(responses[0].text);
+                ShowStatus("sending stored password");
+            }
+        }
+        if (!autoSendPassword) {
             char title[128];
             buf[0] = 0;
             title[0] = 0;
-            ConnectSettings->InteractivePasswordSent = true;
             if (instruction && instruction_len) {
                 strlcpy(buf, instruction, min(instruction_len, sizeof(buf)-1));
                 strlcat(buf, "\n", sizeof(buf)-1);
@@ -444,15 +462,17 @@ static void kbd_callback(const char *name,  int name_len,
             }
             retbuf[0] = 0;
 
+            ShowStatus("requesting password from user...");
             if (RequestProc(PluginNumber, RT_Password, title, buf, retbuf, sizeof(retbuf)-1)) {
-                responses[0].text = _strdup(retbuf);
-                responses[0].length = (unsigned int)strlen(retbuf);
+                responses[i].text = _strdup(retbuf);
+                responses[i].length = (unsigned int)strlen(retbuf);
                 // Remember password for background transfers
                 if (ConnectSettings && ConnectSettings->password[0] == 0)
                     strlcpy(ConnectSettings->password, retbuf, sizeof(ConnectSettings->password)-1);
+                ShowStatus("sending password entered by user");
             } else {
-                responses[0].text = NULL;
-                responses[0].length = 0;
+                responses[i].text = NULL;
+                responses[i].length = 0;
             }
         }
     }
