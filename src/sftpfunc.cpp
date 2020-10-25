@@ -442,6 +442,23 @@ void ShowError(char* error)
     RequestProc(PluginNumber, RT_MsgOK, "SFTP Error", error, NULL, 0);
 }
 
+void SftpLogLastError(char* errtext, int errnr)
+{
+    char errbuf[128];
+    if (errnr == 0 || errnr == LIBSSH2_ERROR_EAGAIN)   //no error -> do not log
+        return;
+    strlcpy(errbuf, errtext, 128 - 10);
+    errnr = -errnr;
+    if (errnr >= 0 && errnr <= 47) {
+        strlcat(errbuf, ERRORNAMES[errnr], sizeof(errbuf)-8);
+        strlcat(errbuf, " (", sizeof(errbuf)-6);
+        itoa(errnr, errbuf + strlen(errbuf), 10);
+        strlcat(errbuf, ")", sizeof(errbuf)-1);
+    } else
+        itoa(errnr, errbuf + strlen(errbuf), 10);
+    LogProc(PluginNumber, MSGTYPE_IMPORTANTERROR, errbuf);
+}
+
 void ShowErrorId(int errorid)
 {
     char errorstr[256];
@@ -737,7 +754,7 @@ int SftpConnect(pConnectSettings ConnectSettings)
         bool lastcrlfcrlf;
         char progressbuf[250];
         LoadStr(progressbuf, IDS_PROXY_CONNECT);
-        int nrbytes;
+        int nrbytes, err;
         switch (ConnectSettings->proxytype) {
         case 2: // HTTP CONNECT
             if (ProgressProc(PluginNumber, progressbuf, "-", 20)) {
@@ -1000,6 +1017,7 @@ int SftpConnect(pConnectSettings ConnectSettings)
 
         ConnectSettings->session = libssh2_session_init_ex(myalloc, myfree, myrealloc, ConnectSettings);
         if (!ConnectSettings->session) {
+            SftpLogLastError("libssh2_session_init_ex: ", libssh2_session_last_errno(ConnectSettings->session));
             ShowErrorId(IDS_ERR_INIT_SSH2);
             closesocket(ConnectSettings->sock);
             ConnectSettings->sock = 0;
@@ -1012,16 +1030,18 @@ int SftpConnect(pConnectSettings ConnectSettings)
         // Always allow "none" for the case that the server doesn't support compression
         loop = 30;
         LoadStr(buf, IDS_SET_COMPRESSION);
-        while (libssh2_session_method_pref(ConnectSettings->session, LIBSSH2_METHOD_COMP_CS, ConnectSettings->compressed ? "zlib, none" : "none") ==  LIBSSH2_ERROR_EAGAIN) {
+        while ((err = libssh2_session_method_pref(ConnectSettings->session, LIBSSH2_METHOD_COMP_CS, ConnectSettings->compressed ? "zlib, none" : "none")) ==  LIBSSH2_ERROR_EAGAIN) {
             if (ProgressLoop(buf, 30, 40, &loop, &lasttime))
                 break;
             IsSocketReadable(ConnectSettings->sock);  // sleep to avoid 100% CPU!
         }
-        while (libssh2_session_method_pref(ConnectSettings->session, LIBSSH2_METHOD_COMP_SC, ConnectSettings->compressed ? "zlib, none" : "none") ==  LIBSSH2_ERROR_EAGAIN) {
+        SftpLogLastError("libssh2_session_method_pref: ", err);
+        while ((err = libssh2_session_method_pref(ConnectSettings->session, LIBSSH2_METHOD_COMP_SC, ConnectSettings->compressed ? "zlib, none" : "none")) ==  LIBSSH2_ERROR_EAGAIN) {
             if (ProgressLoop(buf, 30, 40, &loop, &lasttime))
                 break;
             IsSocketReadable(ConnectSettings->sock);  // sleep to avoid 100% CPU!
         }
+        SftpLogLastError("libssh2_session_method_pref2: ", err);
         /* ... start it up. This will trade welcome banners,  exchange keys, 
          * and setup crypto,  compression,  and MAC layers
          */
@@ -1041,12 +1061,13 @@ int SftpConnect(pConnectSettings ConnectSettings)
             ShowError(buf);
 
             libssh2_session_free(ConnectSettings->session); 
-            ConnectSettings->session=NULL;
+            ConnectSettings->session = NULL;
             Sleep(1000);
             closesocket(ConnectSettings->sock); 
             ConnectSettings->sock = 0;
             return -1;
-        } 
+        } else
+            SftpLogLastError("libssh2_session_startup: ", libssh2_session_last_errno(ConnectSettings->session));
 
         LoadStr(buf, IDS_SSH_LOGIN);
         if (ProgressProc(PluginNumber, buf, "-", 60)) {
@@ -1060,6 +1081,15 @@ int SftpConnect(pConnectSettings ConnectSettings)
 
         const char *fingerprint = libssh2_hostkey_hash(ConnectSettings->session, LIBSSH2_HOSTKEY_HASH_MD5);
         
+        if (fingerprint == NULL) {
+            SftpLogLastError("Fingerprint error: ", libssh2_session_last_errno(ConnectSettings->session));
+            libssh2_session_free(ConnectSettings->session); 
+            ConnectSettings->session = NULL;
+            Sleep(1000);
+            closesocket(ConnectSettings->sock); 
+            ConnectSettings->sock = 0;
+            return -1;
+        }
         LoadStr(buf, IDS_SERVER_FINGERPRINT);
         ShowStatus(buf);
         buf[0] = 0;
@@ -1075,6 +1105,7 @@ int SftpConnect(pConnectSettings ConnectSettings)
                 strlcat(buf, " ", sizeof(buf)-1);
         }
         ShowStatus(buf);
+
         // Verify server
         if (ConnectSettings->savedfingerprint[0] == 0 || strcmp(ConnectSettings->savedfingerprint, buf) != 0) {  // a new server,  or changed fingerprint
             char buf1[4*MAX_PATH];
@@ -1143,8 +1174,10 @@ int SftpConnect(pConnectSettings ConnectSettings)
             if (strstr(userauthlist,  "publickey") != NULL) {
                 auth_pw |= 4;
             } 
-        } else
+        } else {
+            SftpLogLastError("libssh2_userauth_list: ", libssh2_session_last_errno(ConnectSettings->session));
             auth_pw = 5;   // assume password+pubkey allowed
+        }
 
         auth = 0;
         if (libssh2_userauth_authenticated(ConnectSettings->session)) {
@@ -1348,8 +1381,10 @@ int SftpConnect(pConnectSettings ConnectSettings)
                             break;
                         IsSocketReadable(ConnectSettings->sock);  // sleep to avoid 100% CPU!
                     }
-                    if (auth)
+                    if (auth) {
+                        SftpLogLastError("libssh2_userauth_publickey_fromfile: ", auth);
                         ShowErrorId(IDS_ERR_AUTH_PUBKEY);
+                    }
                     else if (!ConnectSettings->password[0])
                         strlcpy(ConnectSettings->password, passphrase, sizeof(ConnectSettings->password)-1);
                 }
@@ -1382,8 +1417,10 @@ int SftpConnect(pConnectSettings ConnectSettings)
                     IsSocketReadable(ConnectSettings->sock);  // sleep to avoid 100% CPU!
                 }
                 void* abst = ConnectSettings;
-                if (auth)
+                if (auth) {
+                    SftpLogLastError("libssh2_userauth_password_ex: ", auth);
                     ShowErrorId(IDS_ERR_AUTH_PASSWORD);
+                }
                 else if (!ConnectSettings->password[0])
                     strlcpy(ConnectSettings->password, passphrase, sizeof(ConnectSettings->password)-1);
             } else
@@ -1402,8 +1439,10 @@ int SftpConnect(pConnectSettings ConnectSettings)
                         break;
                     IsSocketReadable(ConnectSettings->sock);  // sleep to avoid 100% CPU!
                 }
-                if (auth)
+                if (auth) {
+                    SftpLogLastError("libssh2_userauth_keyboard_interactive: ", auth);
                     ShowErrorId(IDS_ERR_AUTH_KEYBDINT);
+                }
             }
         } 
         
@@ -1483,7 +1522,6 @@ int SftpConnect(pConnectSettings ConnectSettings)
             if (strcmp(ConnectSettings->DisplayName, s_quickconnect) != 0)
                 WritePrivateProfileString(ConnectSettings->DisplayName, "unixlinebreaks", ConnectSettings->unixlinebreaks ? "1" : "0", ConnectSettings->IniFileName);
         }
-
         ConnectSettings->sftpsession = NULL;
 
         // Send user-defined command line
@@ -1493,6 +1531,7 @@ int SftpConnect(pConnectSettings ConnectSettings)
             strlcpy(buf, ConnectSettings->connectsendcommand, sizeof(buf)-1);
             LIBSSH2_CHANNEL *channel;
             channel = ConnectChannel(ConnectSettings->session);
+            SftpLogLastError("ConnectChannel: ", libssh2_session_last_errno(ConnectSettings->session));
             if (ConnectSettings->sendcommandmode <= 1) {
                 if (SendChannelCommand(ConnectSettings->session, channel, ConnectSettings->connectsendcommand)) {
                     while (!libssh2_channel_eof(channel)) {
@@ -3262,6 +3301,11 @@ int SftpDownloadFileW(void* serverid, WCHAR* RemoteName, WCHAR* LocalName, BOOL 
     if (!ConnectSettings)
         return SFTP_FAILED;
 
+    BOOL LastWasCr = false;
+    char abuf[MAX_PATH];
+    WCHAR msgbuf[wdirtypemax];
+    WCHAR *pend;
+    
     BOOL scpdata = ConnectSettings->scpfordata;
 
     if (scpdata && Resume && !ConnectSettings->scponly)    // resume not possible with scp!
@@ -3269,6 +3313,16 @@ int SftpDownloadFileW(void* serverid, WCHAR* RemoteName, WCHAR* LocalName, BOOL 
 
     if (scpdata && filesize > (((__int64)1) << 31) && !ConnectSettings->scponly)  // scp supports max 2 GB
         scpdata = false;
+
+    LoadStr(abuf, IDS_DOWNLOAD);
+    awlcopy(msgbuf, abuf, wdirtypemax - 1);
+    if (scpdata)
+        wcslcat(msgbuf, L" (SCP)", wdirtypemax);
+
+    pend = msgbuf + wcslen(msgbuf);
+    wcslcat(msgbuf, RemoteName, countof(msgbuf)-1);
+    ReplaceBackslashBySlashW(msgbuf);
+    ShowStatusW(msgbuf);
 
     if (ConnectSettings->utf8names)
         wcslcpytoutf8(filename, RemoteName, sizeof(filename)-1);
@@ -3300,6 +3354,8 @@ int SftpDownloadFileW(void* serverid, WCHAR* RemoteName, WCHAR* LocalName, BOOL 
             }
         } while (remotefilescp == 0 && libssh2_session_last_errno(ConnectSettings->session) == LIBSSH2_ERROR_EAGAIN);
         if (!remotefilescp) {
+            SftpLogLastError("SCP download error: ", libssh2_session_last_errno(ConnectSettings->session));
+
             // Note: It seems that scp sometimes fails to get file names with non-English characters!
             BOOL hasnonenglish=false;
             for (int i = 0; i < (int)wcslen(RemoteName); i++) {
@@ -3374,17 +3430,6 @@ int SftpDownloadFileW(void* serverid, WCHAR* RemoteName, WCHAR* LocalName, BOOL 
             return SFTP_READFAILED;
         }
     }
-    BOOL LastWasCr = false;
-    char abuf[MAX_PATH];
-    WCHAR msgbuf[wdirtypemax];
-    WCHAR *pend;
-    
-    LoadStr(abuf, IDS_DOWNLOAD);
-    awlcopy(msgbuf, abuf, wdirtypemax-1);
-    pend = msgbuf + wcslen(msgbuf);
-    wcslcat(msgbuf, RemoteName, countof(msgbuf)-1);
-    ReplaceBackslashBySlashW(msgbuf);
-    ShowStatusW(msgbuf);
 
     ProgressProcT(PluginNumber, pend, LocalName, 0);
 
@@ -3432,8 +3477,12 @@ int SftpDownloadFileW(void* serverid, WCHAR* RemoteName, WCHAR* LocalName, BOOL 
             IsSocketReadable(ConnectSettings->sock);  // sleep to avoid 100% CPU!
             len = 1;
         }
-        else if (aborttime != -1)
-            break;
+        else {
+            if (len < 0)
+                SftpLogLastError("Download read error: ", len);
+            if (aborttime != -1)
+                break;
+        }
         // if there is no data until the abort time is reached,  abort anyway
         // this can corrupt the sftp channel,  so discard it on the next read
         int delta = (int)GetTickCount() - aborttime;
@@ -3594,8 +3643,10 @@ int SftpUploadFileW(void* serverid, WCHAR* LocalName, WCHAR* RemoteName, BOOL Re
                     break;
                 }
             } while (remotefilescp == 0 && libssh2_session_last_errno(ConnectSettings->session) == LIBSSH2_ERROR_EAGAIN);
-            if (!remotefilescp)
+            if (!remotefilescp) {
+                SftpLogLastError("SCP upload error: ", libssh2_session_last_errno(ConnectSettings->session));
                 return SFTP_READFAILED;
+            }
         } else {
             if (TextMode && -1 == GetTextModeFileSize(localfile, false))
                 TextMode = false;
@@ -3691,9 +3742,10 @@ int SftpUploadFileW(void* serverid, WCHAR* LocalName, WCHAR* RemoteName, BOOL Re
                         len -= written;
                         if (len == 0)
                             sizeloaded += dataread;  // not the converted size!
-                    } else if (written != LIBSSH2_ERROR_EAGAIN) // error?
+                    } else if (written != LIBSSH2_ERROR_EAGAIN) { // error?
+                        SftpLogLastError("Upload write error: ", libssh2_session_last_errno(ConnectSettings->session));
                         len = 0;
-                    else {
+                    } else {
                         if (!IsSocketWritable(ConnectSettings->sock))  // sleep to avoid 100% CPU!
                             Sleep(10);
                     }
@@ -3762,6 +3814,9 @@ int SftpUploadFileW(void* serverid, WCHAR* LocalName, WCHAR* RemoteName, BOOL Re
         } else
             retval = SFTP_WRITEFAILED;
         CloseHandle(localfile);
+    } else {
+        LogProc(PluginNumber, MSGTYPE_IMPORTANTERROR, "Error opening local file!");
+        retval = SFTP_READFAILED;
     }
     if (retval == SFTP_OK) {
         FILETIME ft;

@@ -306,6 +306,16 @@ typedef struct _LIBSSH2_POLLFD {
 #define LIBSSH2_ERROR_INVALID_POLL_TYPE         -35
 #define LIBSSH2_ERROR_PUBLICKEY_PROTOCOL        -36
 #define LIBSSH2_ERROR_EAGAIN                    -37
+#define LIBSSH2_ERROR_BUFFER_TOO_SMALL          -38
+#define LIBSSH2_ERROR_BAD_USE                   -39
+#define LIBSSH2_ERROR_COMPRESS                  -40
+#define LIBSSH2_ERROR_OUT_OF_BOUNDARY           -41
+#define LIBSSH2_ERROR_AGENT_PROTOCOL            -42
+#define LIBSSH2_ERROR_SOCKET_RECV               -43
+#define LIBSSH2_ERROR_ENCRYPT                   -44
+#define LIBSSH2_ERROR_BAD_SOCKET                -45
+#define LIBSSH2_ERROR_KNOWN_HOSTS               -46
+#define LIBSSH2_ERROR_CHANNEL_WINDOW_FULL       -47
 
 #ifdef staticlinking
 /* Session API */

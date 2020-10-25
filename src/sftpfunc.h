@@ -3,6 +3,7 @@
 #include "libssh2_config.h"
 #include "libssh2.h"
 #include "libssh2_sftp.h"
+#include "libssh2_error.h"
 
 #define SFTP_OK          0
 #define SFTP_FAILED      1
