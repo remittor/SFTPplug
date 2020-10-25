@@ -717,7 +717,7 @@ int SftpConnect(pConnectSettings ConnectSettings)
                 if (hostinfo)
                     memcpy(&hostaddr, hostinfo->h_addr_list[0], 4);
             }
-            ConnectSettings->sock = socket(AF_INET, SOCK_STREAM, 0);
+            ConnectSettings->sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 
             sin.sin_family = AF_INET;
             sin.sin_port = htons(connecttoport); //htons(22);
@@ -1445,7 +1445,27 @@ int SftpConnect(pConnectSettings ConnectSettings)
                 }
             }
         } else {
-            if (auth_pw & 1) {
+            if (auth_pw & 2) {   // keyboard-interactive
+                LoadStr(buf, IDS_AUTH_KEYBDINT_FOR);
+                strlcat(buf, ConnectSettings->user, sizeof(buf)-1);
+                ShowStatus(buf);
+
+                LoadStr(buf, IDS_AUTH_KEYBDINT);
+                ConnectSettings->InteractivePasswordSent = false;
+                while ((auth = libssh2_userauth_keyboard_interactive(ConnectSettings->session,ConnectSettings->user, &kbd_callback))==
+                    LIBSSH2_ERROR_EAGAIN) {
+                    if (ProgressLoop(buf, 70, 80, &loop, &lasttime))
+                        break;
+                    IsSocketReadable(ConnectSettings->sock);  // sleep to avoid 100% CPU!
+                }
+                if (auth) {
+                    SftpLogLastError("libssh2_userauth_keyboard_interactive: ", auth);
+                    if ((auth_pw & 1) == 0)  // only show error if password auth isn't supported - otherwise try that
+                        ShowErrorId(IDS_ERR_AUTH_KEYBDINT);
+                }
+            } else
+                auth = LIBSSH2_ERROR_INVAL;
+            if (auth != 0 && (auth_pw & 1) != 0) {
                 char passphrase[256];
                 strlcpy(passphrase, ConnectSettings->password, sizeof(passphrase)-1);
                 if (passphrase[0] == 0) {
@@ -1478,26 +1498,6 @@ int SftpConnect(pConnectSettings ConnectSettings)
                 }
                 else if (!ConnectSettings->password[0])
                     strlcpy(ConnectSettings->password, passphrase, sizeof(ConnectSettings->password)-1);
-            } else
-                auth = LIBSSH2_ERROR_INVAL;
-
-            if (auth && auth_pw & 2) {   // keyboard-interactive
-                LoadStr(buf, IDS_AUTH_KEYBDINT_FOR);
-                strlcat(buf, ConnectSettings->user, sizeof(buf)-1);
-                ShowStatus(buf);
-
-                LoadStr(buf, IDS_AUTH_KEYBDINT);
-                ConnectSettings->InteractivePasswordSent=false;
-                while ((auth = libssh2_userauth_keyboard_interactive(ConnectSettings->session, ConnectSettings->user, &kbd_callback)) == 
-                    LIBSSH2_ERROR_EAGAIN) {
-                    if (ProgressLoop(buf, 70, 80, &loop, &lasttime))
-                        break;
-                    IsSocketReadable(ConnectSettings->sock);  // sleep to avoid 100% CPU!
-                }
-                if (auth) {
-                    SftpLogLastError("libssh2_userauth_keyboard_interactive: ", auth);
-                    ShowErrorId(IDS_ERR_AUTH_KEYBDINT);
-                }
             }
         } 
         
