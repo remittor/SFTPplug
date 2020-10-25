@@ -1,4 +1,4 @@
-// Microsoft Visual C++ generated resource script.
+//Microsoft Developer Studio generated resource script.
 //
 #include "resource.h"
 
@@ -13,7 +13,7 @@
 #undef APSTUDIO_READONLY_SYMBOLS
 
 /////////////////////////////////////////////////////////////////////////////
-// Deutsch (Deutschland) resources
+// German (Germany) resources
 
 #if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_DEU)
 #ifdef _WIN32
@@ -27,51 +27,70 @@ LANGUAGE LANG_GERMAN, SUBLANG_GERMAN
 //
 
 IDD_WEBDAV DIALOGEX 0, 0, 276, 279
-STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
+STYLE DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
 EXSTYLE WS_EX_NOPARENTNOTIFY
 CAPTION "Verbinden mit SFTP-Server"
-FONT 8, "MS Shell Dlg", 0, 0, 0x1
+FONT 8, "MS Shell Dlg"
 BEGIN
-    LTEXT           "&Verbinden mit (Server/Pfad oder Server:Port/Pfad)",IDC_STATIC,5,5,166,8
+    LTEXT           "&Verbinden mit (Server/Pfad oder Server:Port/Pfad)",
+                    IDC_STATIC,5,5,166,8
     EDITTEXT        IDC_CONNECTTO,5,15,266,12,ES_AUTOHSCROLL
-    CONTROL         "Auto",IDC_PROTOAUTO,"Button",BS_AUTORADIOBUTTON | WS_GROUP | WS_TABSTOP,176,5,27,10
-    CONTROL         "IPv4",IDC_PROTOV4,"Button",BS_AUTORADIOBUTTON,208,5,31,10
-    CONTROL         "IPv6",IDC_PROTOV6,"Button",BS_AUTORADIOBUTTON,240,5,31,10
+    CONTROL         "Auto",IDC_PROTOAUTO,"Button",BS_AUTORADIOBUTTON | 
+                    WS_GROUP | WS_TABSTOP,176,5,27,10
+    CONTROL         "IPv4",IDC_PROTOV4,"Button",BS_AUTORADIOBUTTON,208,5,31,
+                    10
+    CONTROL         "IPv6",IDC_PROTOV6,"Button",BS_AUTORADIOBUTTON,240,5,31,
+                    10
     LTEXT           "&Benutzername:",IDC_STATIC,5,31,266,8
     EDITTEXT        IDC_USERNAME,5,42,266,12,ES_AUTOHSCROLL
     LTEXT           "&Kennwort:",IDC_STATIC,5,58,69,8
-    CONTROL         "PuTTY-Agenten benutzen (Pageant)",IDC_USEAGENT,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,90,58,130,8
+    CONTROL         "PuTTY-Agenten benutzen (Pageant)",IDC_USEAGENT,"Button",
+                    BS_AUTOCHECKBOX | WS_TABSTOP,90,58,130,8
     EDITTEXT        IDC_PASSWORD,5,68,266,12,ES_PASSWORD | ES_AUTOHSCROLL
-    PUSHBUTTON      "Kennwort &ändern...",IDC_EDITPASS,5,71,266,14,NOT WS_VISIBLE
-    CONTROL         "Schütze Kennwort mit Hauptkennwort (TC>=7.5)",IDC_CRYPTPASS,
-                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,5,82,266,10
-    GROUPBOX        "Benut&zerzertifikat für Authentifizierung:",IDC_CERTFRAME,5,92,266,60
-    LTEXT           "Öffentliche Schlüsseldatei (*.pub):",IDC_STATICPUB,10,103,240,8
+    PUSHBUTTON      "Kennwort &ändern...",IDC_EDITPASS,5,71,266,14,NOT 
+                    WS_VISIBLE
+    CONTROL         "Schütze Kennwort mit Hauptkennwort (TC>=7.5)",
+                    IDC_CRYPTPASS,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,5,82,
+                    266,10
+    GROUPBOX        "Benut&zerzertifikat für Authentifizierung:",
+                    IDC_CERTFRAME,5,92,266,59
+    LTEXT           "Öffentliche Schlüsseldatei (*.pub):",IDC_STATICPUB,10,
+                    103,240,8
     EDITTEXT        IDC_PUBKEY,10,112,239,12,ES_AUTOHSCROLL
     PUSHBUTTON      ">>",IDC_LOADPUBKEY,250,112,16,12
-    LTEXT           "Private Schlüsseldatei (*.pem):",IDC_STATICPEM,10,126,253,8
+    LTEXT           "Private Schlüsseldatei (*.pem):",IDC_STATICPEM,10,126,
+                    253,8
     EDITTEXT        IDC_PRIVKEY,10,136,239,12,ES_AUTOHSCROLL
     PUSHBUTTON      ">>",IDC_LOADPRIVKEY,250,136,16,12
     PUSHBUTTON      "?",IDC_CERTHELP,254,100,12,10
-    CONTROL         "Kom&pression mit ZLIB (Warnung: Bei einigen Servern schlägt Verbindung fehl)",IDC_COMPRESS,
-                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,5,154,266,10
-    CONTROL         "Schreibe komplette Verzeichnislisten in &Logdatei (für Fehleranalyse)",IDC_DETAILED_LOG,
-                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,5,165,266,10
+    CONTROL         "Kom&pression mit ZLIB (Warnung: Bei einigen Servern schlägt Verbindung fehl)",
+                    IDC_COMPRESS,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,5,152,
+                    266,8
+    CONTROL         "Schreibe komplette Verzeichnislisten in &Logdatei (für Fehleranalyse)",
+                    IDC_DETAILED_LOG,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,5,
+                    162,266,8
     CONTROL         "Benutze SCP für Transfers (schneller!)",IDC_SCP_DATA,
-                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,5,176,145,10
+                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,5,172,145,8
+    CONTROL         "Benutze SCP für alles (kein SFTP)",IDC_SCP_ALL,"Button",
+                    BS_AUTOCHECKBOX | WS_TABSTOP,5,182,146,8
     LTEXT           "System:",IDC_STATIC,155,177,34,8
-    COMBOBOX        IDC_SYSTEM,189,175,78,30,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    COMBOBOX        IDC_SYSTEM,189,175,78,30,CBS_DROPDOWNLIST | WS_VSCROLL | 
+                    WS_TABSTOP
     CONTROL         "Codierung der Dateinamen auf dem Server:",IDC_STATIC,
-                    "Static",SS_SIMPLE | WS_GROUP,5,190,142,8
-    COMBOBOX        IDC_UTF8,149,188,104,127,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+                    "Static",SS_SIMPLE | WS_GROUP,5,191,142,8
+    COMBOBOX        IDC_UTF8,149,188,104,127,CBS_DROPDOWNLIST | WS_VSCROLL | 
+                    WS_TABSTOP
     PUSHBUTTON      "?",IDC_UTF8HELP,254,189,12,10
-    GROUPBOX        " Benutzer&rechte von neu angelegten Dateien/Verzeichnissen: ",IDC_STATIC,5,201,266,26
-    CONTROL         "Neue Dateien (Upload):",IDC_STATIC,"Static",SS_SIMPLE | WS_GROUP,13,213,79,8
+    GROUPBOX        " Benutzer&rechte von neu angelegten Dateien/Verzeichnissen: ",
+                    IDC_STATIC,5,201,266,26
+    CONTROL         "Neue Dateien (Upload):",IDC_STATIC,"Static",SS_SIMPLE | 
+                    WS_GROUP,13,213,79,8
     EDITTEXT        IDC_FILEMOD,95,211,28,12,ES_AUTOHSCROLL | ES_NUMBER
     LTEXT           "Neue Verzeichnisse:",IDC_STATIC,162,213,73,8
     EDITTEXT        IDC_DIRMOD,236,211,28,12,ES_AUTOHSCROLL | ES_NUMBER
     LTEXT           "Proxy-Einstellungen:",IDC_STATIC,5,231,266,8
-    COMBOBOX        IDC_PROXYCOMBO,5,241,244,30,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    COMBOBOX        IDC_PROXYCOMBO,5,241,244,30,CBS_DROPDOWNLIST | 
+                    WS_VSCROLL | WS_TABSTOP
     PUSHBUTTON      ">>",IDC_PROXYBUTTON,251,240,20,14
     PUSHBUTTON      "Letzten Proxy löschen",IDC_DELETELAST,5,256,80,14
     DEFPUSHBUTTON   "OK",IDOK,165,259,50,14
@@ -79,7 +98,7 @@ BEGIN
 END
 
 IDD_PROPERTIES DIALOGEX 0, 0, 249, 214
-STYLE DS_SETFONT | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "Eigenschaften"
 FONT 8, "MS Shell Dlg", 0, 0, 0x1
 BEGIN
@@ -92,36 +111,54 @@ BEGIN
     LTEXT           "Permissions:",IDC_STATIC,16,59,40,8
     LTEXT           "Grösse:",IDC_STATIC,16,72,25,8
     LTEXT           "Geändert:",IDC_STATIC,16,85,32,8
-    EDITTEXT        IDC_PROP_NAME,72,20,164,12,ES_AUTOHSCROLL | ES_READONLY | NOT WS_BORDER
-    EDITTEXT        IDC_PROP_OWNER,72,33,164,12,ES_AUTOHSCROLL | ES_READONLY | NOT WS_BORDER
-    EDITTEXT        IDC_PROP_GROUP,72,46,164,12,ES_AUTOHSCROLL | ES_READONLY | NOT WS_BORDER
-    EDITTEXT        IDC_PROP_PERMISSIONS,72,59,164,12,ES_AUTOHSCROLL | ES_READONLY | NOT WS_BORDER
-    EDITTEXT        IDC_PROP_SIZE,72,72,164,12,ES_AUTOHSCROLL | ES_READONLY | NOT WS_BORDER
-    EDITTEXT        IDC_PROP_MODIFIED,72,85,164,12,ES_AUTOHSCROLL | ES_READONLY | NOT WS_BORDER
+    EDITTEXT        IDC_PROP_NAME,72,20,164,12,ES_AUTOHSCROLL | ES_READONLY | 
+                    NOT WS_BORDER
+    EDITTEXT        IDC_PROP_OWNER,72,33,164,12,ES_AUTOHSCROLL | ES_READONLY | 
+                    NOT WS_BORDER
+    EDITTEXT        IDC_PROP_GROUP,72,46,164,12,ES_AUTOHSCROLL | ES_READONLY | 
+                    NOT WS_BORDER
+    EDITTEXT        IDC_PROP_PERMISSIONS,72,59,164,12,ES_AUTOHSCROLL | 
+                    ES_READONLY | NOT WS_BORDER
+    EDITTEXT        IDC_PROP_SIZE,72,72,164,12,ES_AUTOHSCROLL | ES_READONLY | 
+                    NOT WS_BORDER
+    EDITTEXT        IDC_PROP_MODIFIED,72,85,164,12,ES_AUTOHSCROLL | 
+                    ES_READONLY | NOT WS_BORDER
     GROUPBOX        "Antwort auf STAT-Befehl",IDC_STATIC,7,103,235,88
-    EDITTEXT        IDC_PROP_RAWSTAT,15,113,220,73,ES_MULTILINE | ES_AUTOVSCROLL | ES_AUTOHSCROLL | ES_READONLY | NOT WS_BORDER
+    EDITTEXT        IDC_PROP_RAWSTAT,15,113,220,73,ES_MULTILINE | 
+                    ES_AUTOVSCROLL | ES_AUTOHSCROLL | ES_READONLY | NOT 
+                    WS_BORDER
 END
 
 IDD_PROXY DIALOGEX 0, 0, 280, 120
-STYLE DS_SETFONT | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "Proxyeinstellungen"
 FONT 8, "MS Shell Dlg", 0, 0, 0x1
 BEGIN
-    CONTROL         "Kei&nen Proxy verwenden",IDC_NOPROXY,"Button",BS_AUTORADIOBUTTON,12,20,53,10
-    CONTROL         "HTTP CONNECT",IDC_OTHERPROXY,"Button",BS_AUTORADIOBUTTON,67,20,67,10
-    CONTROL         "SOCKS 4/4a",IDC_SOCKS4APROXY,"Button",BS_AUTORADIOBUTTON,144,20,53,10
-    CONTROL         "SOCKS 5",IDC_SOCKS5PROXY,"Button",BS_AUTORADIOBUTTON,200,20,44,10
-    CONTROL         "Proxy host:",IDC_STATIC,"Static",SS_SIMPLE | WS_GROUP,12,37,41,8
+    CONTROL         "Kei&nen Proxy verwenden",IDC_NOPROXY,"Button",
+                    BS_AUTORADIOBUTTON,12,20,53,10
+    CONTROL         "HTTP CONNECT",IDC_OTHERPROXY,"Button",
+                    BS_AUTORADIOBUTTON,67,20,67,10
+    CONTROL         "SOCKS 4/4a",IDC_SOCKS4APROXY,"Button",
+                    BS_AUTORADIOBUTTON,144,20,53,10
+    CONTROL         "SOCKS 5",IDC_SOCKS5PROXY,"Button",BS_AUTORADIOBUTTON,
+                    200,20,44,10
+    CONTROL         "Proxy host:",IDC_STATIC,"Static",SS_SIMPLE | WS_GROUP,
+                    12,37,41,8
     EDITTEXT        IDC_PROXYSERVER,71,34,195,12,ES_AUTOHSCROLL
-    CONTROL         "Proxy/Benutzer:",IDC_STATIC,"Static",SS_SIMPLE | WS_GROUP,12,52,56,8
+    CONTROL         "Proxy/Benutzer:",IDC_STATIC,"Static",SS_SIMPLE | 
+                    WS_GROUP,12,52,56,8
     EDITTEXT        IDC_PROXYUSERNAME,71,50,196,12,ES_AUTOHSCROLL
-    CONTROL         "Proxy/Kennwort:",IDC_STATIC,"Static",SS_SIMPLE | WS_GROUP,12,66,57,8
-    EDITTEXT        IDC_PROXYPASSWORD,71,66,196,12,ES_PASSWORD | ES_AUTOHSCROLL
+    CONTROL         "Proxy/Kennwort:",IDC_STATIC,"Static",SS_SIMPLE | 
+                    WS_GROUP,12,66,57,8
+    EDITTEXT        IDC_PROXYPASSWORD,71,66,196,12,ES_PASSWORD | 
+                    ES_AUTOHSCROLL
     PUSHBUTTON      "?",IDC_PROXYHELP,256,18,12,10
     GROUPBOX        "Proxyeinstellungen",IDC_STATIC,7,7,266,89
-    PUSHBUTTON      "Kennwort &ändern...",IDC_EDITPASS,69,66,198,14,NOT WS_VISIBLE
-    CONTROL         "Schütze Kennwort mit Hauptkennwort (TC>=7.5)",IDC_CRYPTPASS,
-                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,12,81,258,10
+    PUSHBUTTON      "Kennwort &ändern...",IDC_EDITPASS,69,66,198,14,NOT 
+                    WS_VISIBLE
+    CONTROL         "Schütze Kennwort mit Hauptkennwort (TC>=7.5)",
+                    IDC_CRYPTPASS,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,12,
+                    81,258,10
     DEFPUSHBUTTON   "OK",IDOK,167,99,50,14
     PUSHBUTTON      "Cancel",IDCANCEL,223,99,50,14
 END
@@ -133,7 +170,7 @@ END
 //
 
 #ifdef APSTUDIO_INVOKED
-GUIDELINES DESIGNINFO 
+GUIDELINES DESIGNINFO DISCARDABLE 
 BEGIN
     IDD_WEBDAV, DIALOG
     BEGIN
@@ -167,7 +204,7 @@ END
 // String Table
 //
 
-STRINGTABLE 
+STRINGTABLE DISCARDABLE 
 BEGIN
     12001                   "Nicht genug Handles"
     12002                   "Timeout"
@@ -186,7 +223,7 @@ BEGIN
     12015                   "Anmeldung fehlgeschlagen"
 END
 
-STRINGTABLE 
+STRINGTABLE DISCARDABLE 
 BEGIN
     12016                   "Ungültiger Vorgang"
     12017                   "Vorgang abgebrochen"
@@ -206,7 +243,7 @@ BEGIN
     12031                   "Verbindung zurückgesetzt"
 END
 
-STRINGTABLE 
+STRINGTABLE DISCARDABLE 
 BEGIN
     12032                   "Nochmals versuchen"
     12033                   "Ungültiger Proxybefehl"
@@ -226,7 +263,7 @@ BEGIN
     12047                   "Asynchroner Thread fehlgeschlagen"
 END
 
-STRINGTABLE 
+STRINGTABLE DISCARDABLE 
 BEGIN
     12048                   "Änderung des Umleitungsschemas"
     12049                   "Dialog hängig"
@@ -236,14 +273,14 @@ BEGIN
     12053                   "CD-ROM einlegen"
 END
 
-STRINGTABLE 
+STRINGTABLE DISCARDABLE 
 BEGIN
     IDS_F7NEW               "_F7=neue Verbindung.txt"
     IDS_HELPTEXT            "Pluginhilfe:\r\nF7:\tNeue Verbindung anlegen\r\nF8/Entf:\tVerbindung löschen\r\nEnter\tVerbinden\r\nAlt+Enter\tOptionen ändern"
     IDS_QUICKCONNECT        "_Schnellverbindung"
 END
 
-STRINGTABLE 
+STRINGTABLE DISCARDABLE 
 BEGIN
     IDS_HELP_CAPTION        "Hilfe"
     IDS_HELP_UTF8           "Hier können Sie einstellen, wie der Server Umlaute und Akzente in Dateinamen überträgt. Falls Sie 'automatisch' wählen, wird das SFTP-Plugin einige Umgebungsvariablen des Servers wie 'LANG' abfragen und den Befehl 'locale' senden, um herauszufinden, ob der Server UTF-8 verwendet.\n\nLeider funktioniert das nicht mit allen Servern. Wenn Sie wissen, dass Ihr Server UTF-8 verwendet, oder in den Dateilisten seltsame Zeichen anstelle der Umlaute auftauchen, dann wählen Sie bitte selbst 'Ja'."
@@ -261,7 +298,7 @@ BEGIN
     IDS_ERR_AUTH_KEYBDINT   "Fehler: Authentifizierung via Methode 'keyboard-interaktiv' fehlgeschlagen!"
 END
 
-STRINGTABLE 
+STRINGTABLE DISCARDABLE 
 BEGIN
     IDS_ERR_INIT_SFTP       "Fehler: Konnte SFTP-Sitzung nicht initialisieren!\n"
     IDS_PROXY_PASSWORD_FOR  "SFTP-Proxy-Kennwort für "
@@ -282,7 +319,7 @@ BEGIN
     IDS_ERR_LOAD_PUBKEY     "Kann öffentlichen Schlüssel nicht öffnen!\n"
 END
 
-STRINGTABLE 
+STRINGTABLE DISCARDABLE 
 BEGIN
     IDS_ERR_LOAD_PRIVKEY    "Kann privaten Schlüssel nicht öffnen\n"
     IDS_ERR_PUBKEY_WRONG_FORMAT 
@@ -303,7 +340,7 @@ BEGIN
     IDS_GET_DIR             "Verzeichnis einlesen: "
 END
 
-STRINGTABLE 
+STRINGTABLE DISCARDABLE 
 BEGIN
     IDS_ERR_GET_DIR         "Verzeichnis nicht geöffnet: "
     IDS_MK_DIR              "Verzeichnis anlegen: "
@@ -323,7 +360,7 @@ BEGIN
     IDS_SOCKS5PROXYERR      "SOCKS 5 Proxy Fehler beim Benutzernamen oder Kennwort!"
 END
 
-STRINGTABLE 
+STRINGTABLE DISCARDABLE 
 BEGIN
     IDS_GENERALSOCKSFAILURE "Genereller SOCKS-Serverfehler!"
     IDS_CONNNOTALLOWED      "Verbindung durch Proxy-Regeln nicht erlaubt!"
@@ -340,7 +377,7 @@ BEGIN
     IDS_MACOS               "MacOS (2)"
 END
 
-STRINGTABLE 
+STRINGTABLE DISCARDABLE 
 BEGIN
     IDS_1250                "Osteuropa (1250)"
     IDS_1251                "Kyrillisch Windows (1251)"
@@ -360,7 +397,7 @@ BEGIN
     IDS_850                 "DOS-LATIN1 (850)"
 END
 
-STRINGTABLE 
+STRINGTABLE DISCARDABLE 
 BEGIN
     IDS_20866               "Kyrillisch KOI8-R (20866)"
     IDS_OTHER               "Andere (manuell eingeben)"
@@ -381,18 +418,17 @@ BEGIN
     IDS_PROXY_PASS_TITLE    "Proxy-Password für Benutzer: "
 END
 
-STRINGTABLE 
+STRINGTABLE DISCARDABLE 
 BEGIN
     IDS_PASS_TITLE          "Server-Passwort für Benutzer: "
-    IDS_PASS_CHANGE_REQUEST "Der Server fordert Sie dazu auf, Ihr Passwort zu ändern. Neues Passwort:"
 END
 
-#endif    // Deutsch (Deutschland) resources
+#endif    // German (Germany) resources
 /////////////////////////////////////////////////////////////////////////////
 
 
 /////////////////////////////////////////////////////////////////////////////
-// Englisch (USA) resources
+// English (U.S.) resources
 
 #if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_ENU)
 #ifdef _WIN32
@@ -406,25 +442,33 @@ LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_US
 //
 
 IDD_WEBDAV DIALOGEX 0, 0, 276, 281
-STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
+STYLE DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
 EXSTYLE WS_EX_NOPARENTNOTIFY
 CAPTION "Connect to SFTP Server"
-FONT 8, "MS Shell Dlg", 0, 0, 0x1
+FONT 8, "MS Shell Dlg"
 BEGIN
-    LTEXT           "&Connect to: (server/path or server:port/path)",IDC_STATIC,5,5,166,8
-    CONTROL         "Auto",IDC_PROTOAUTO,"Button",BS_AUTORADIOBUTTON | WS_GROUP | WS_TABSTOP,176,5,27,10
-    CONTROL         "IPv4",IDC_PROTOV4,"Button",BS_AUTORADIOBUTTON,208,5,31,10
-    CONTROL         "IPv6",IDC_PROTOV6,"Button",BS_AUTORADIOBUTTON,240,5,31,10
+    LTEXT           "&Connect to: (server/path or server:port/path)",
+                    IDC_STATIC,5,5,166,8
+    CONTROL         "Auto",IDC_PROTOAUTO,"Button",BS_AUTORADIOBUTTON | 
+                    WS_GROUP | WS_TABSTOP,176,5,27,10
+    CONTROL         "IPv4",IDC_PROTOV4,"Button",BS_AUTORADIOBUTTON,208,5,31,
+                    10
+    CONTROL         "IPv6",IDC_PROTOV6,"Button",BS_AUTORADIOBUTTON,240,5,31,
+                    10
     EDITTEXT        IDC_CONNECTTO,5,15,266,12,ES_AUTOHSCROLL
     LTEXT           "&User name:",IDC_STATIC,5,31,266,8
     EDITTEXT        IDC_USERNAME,5,42,266,12,ES_AUTOHSCROLL
     LTEXT           "&Password:",IDC_STATIC,5,58,61,8
-    CONTROL         "Use PuTTY agent (Pageant)",IDC_USEAGENT,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,90,58,122,8
-    PUSHBUTTON      "Change password...",IDC_EDITPASS,5,71,266,14,NOT WS_VISIBLE
+    CONTROL         "Use PuTTY agent (Pageant)",IDC_USEAGENT,"Button",
+                    BS_AUTOCHECKBOX | WS_TABSTOP,90,58,122,8
+    PUSHBUTTON      "Change password...",IDC_EDITPASS,5,71,266,14,NOT 
+                    WS_VISIBLE
     EDITTEXT        IDC_PASSWORD,5,68,266,12,ES_PASSWORD | ES_AUTOHSCROLL
-    CONTROL         "Protect password with password manager (TC>=7.5)",IDC_CRYPTPASS,
-                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,5,82,266,10
-    GROUPBOX        "Client certificate for &authentication:",IDC_STATIC,5,93,266,60
+    CONTROL         "Protect password with password manager (TC>=7.5)",
+                    IDC_CRYPTPASS,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,5,82,
+                    266,10
+    GROUPBOX        "Client certificate for &authentication:",IDC_STATIC,5,
+                    93,266,60
     LTEXT           "Public key file (*.pub):",IDC_STATIC,10,104,240,8
     EDITTEXT        IDC_PUBKEY,10,113,239,12,ES_AUTOHSCROLL
     PUSHBUTTON      ">>",IDC_LOADPUBKEY,250,113,16,12
@@ -432,32 +476,42 @@ BEGIN
     EDITTEXT        IDC_PRIVKEY,10,137,239,12,ES_AUTOHSCROLL
     PUSHBUTTON      ">>",IDC_LOADPRIVKEY,250,137,16,12
     PUSHBUTTON      "?",IDC_CERTHELP,254,101,12,10
-    CONTROL         "Compress data with &ZLIB (Warning: connection may fail with some servers)",IDC_COMPRESS,
-                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,5,156,266,10
-    CONTROL         "Show entire directory listings in log (for &debugging purposes)",IDC_DETAILED_LOG,
-                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,5,167,266,10
+    CONTROL         "Compress data with &ZLIB (Warning: connection may fail with some servers)",
+                    IDC_COMPRESS,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,5,154,
+                    266,10
+    CONTROL         "Show entire directory listings in log (for &debugging purposes)",
+                    IDC_DETAILED_LOG,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,5,
+                    164,266,10
     CONTROL         "Use SCP for data transfers (faster!)",IDC_SCP_DATA,
-                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,5,177,146,10
+                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,5,174,146,10
+    CONTROL         "Use SCP for everything (no SFTP)",IDC_SCP_ALL,"Button",
+                    BS_AUTOCHECKBOX | WS_TABSTOP,5,184,146,10
     LTEXT           "System:",IDC_STATIC,155,179,34,8
-    COMBOBOX        IDC_SYSTEM,189,177,78,30,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
-    CONTROL         "Encoding (codepage) of file names:",IDC_STATIC,"Static",SS_SIMPLE | WS_GROUP,5,191,140,8
-    COMBOBOX        IDC_UTF8,148,190,104,127,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
-    PUSHBUTTON      "?",IDC_UTF8HELP,253,191,12,10
-    GROUPBOX        " User &rights of newly created files/directories: ",IDC_STATIC,5,203,266,26
-    CONTROL         "New files (Upload):",IDC_STATIC,"Static",SS_SIMPLE | WS_GROUP,13,216,70,8
+    COMBOBOX        IDC_SYSTEM,189,177,78,30,CBS_DROPDOWNLIST | WS_VSCROLL | 
+                    WS_TABSTOP
+    CONTROL         "Encoding (codepage) of file names:",IDC_STATIC,"Static",
+                    SS_SIMPLE | WS_GROUP,5,194,140,8
+    COMBOBOX        IDC_UTF8,148,192,104,127,CBS_DROPDOWNLIST | WS_VSCROLL | 
+                    WS_TABSTOP
+    PUSHBUTTON      "?",IDC_UTF8HELP,253,193,12,10
+    GROUPBOX        " User &rights of newly created files/directories: ",
+                    IDC_STATIC,5,203,266,26
+    CONTROL         "New files (Upload):",IDC_STATIC,"Static",SS_SIMPLE | 
+                    WS_GROUP,13,216,70,8
     EDITTEXT        IDC_FILEMOD,87,214,28,12,ES_AUTOHSCROLL | ES_NUMBER
     LTEXT           "New folders:",IDC_STATIC,185,216,47,8
     EDITTEXT        IDC_DIRMOD,236,214,28,12,ES_AUTOHSCROLL | ES_NUMBER
     LTEXT           "Proxy settings:",IDC_STATIC,5,234,266,8
-    COMBOBOX        IDC_PROXYCOMBO,5,244,244,30,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    COMBOBOX        IDC_PROXYCOMBO,5,244,244,30,CBS_DROPDOWNLIST | 
+                    WS_VSCROLL | WS_TABSTOP
     PUSHBUTTON      ">>",IDC_PROXYBUTTON,251,243,20,14
     PUSHBUTTON      "Delete last proxy",IDC_DELETELAST,5,258,65,14
     DEFPUSHBUTTON   "OK",IDOK,165,262,50,14
     PUSHBUTTON      "Cancel",IDCANCEL,221,262,50,14
 END
 
-IDD_PROPERTIES DIALOG  0, 0, 249, 214
-STYLE DS_SETFONT | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+IDD_PROPERTIES DIALOG DISCARDABLE  0, 0, 249, 214
+STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "Properties"
 FONT 8, "Microsoft Sans Serif"
 BEGIN
@@ -470,36 +524,54 @@ BEGIN
     LTEXT           "Permissions:",IDC_STATIC,16,59,40,8
     LTEXT           "Size:",IDC_STATIC,16,72,16,8
     LTEXT           "Last modified:",IDC_STATIC,16,85,44,8
-    EDITTEXT        IDC_PROP_NAME,72,20,164,12,ES_AUTOHSCROLL | ES_READONLY | NOT WS_BORDER
-    EDITTEXT        IDC_PROP_OWNER,72,33,164,12,ES_AUTOHSCROLL | ES_READONLY | NOT WS_BORDER
-    EDITTEXT        IDC_PROP_GROUP,72,46,164,12,ES_AUTOHSCROLL | ES_READONLY | NOT WS_BORDER
-    EDITTEXT        IDC_PROP_PERMISSIONS,72,59,164,12,ES_AUTOHSCROLL | ES_READONLY | NOT WS_BORDER
-    EDITTEXT        IDC_PROP_SIZE,72,72,164,12,ES_AUTOHSCROLL | ES_READONLY | NOT WS_BORDER
-    EDITTEXT        IDC_PROP_MODIFIED,72,85,164,12,ES_AUTOHSCROLL | ES_READONLY | NOT WS_BORDER
+    EDITTEXT        IDC_PROP_NAME,72,20,164,12,ES_AUTOHSCROLL | ES_READONLY | 
+                    NOT WS_BORDER
+    EDITTEXT        IDC_PROP_OWNER,72,33,164,12,ES_AUTOHSCROLL | ES_READONLY | 
+                    NOT WS_BORDER
+    EDITTEXT        IDC_PROP_GROUP,72,46,164,12,ES_AUTOHSCROLL | ES_READONLY | 
+                    NOT WS_BORDER
+    EDITTEXT        IDC_PROP_PERMISSIONS,72,59,164,12,ES_AUTOHSCROLL | 
+                    ES_READONLY | NOT WS_BORDER
+    EDITTEXT        IDC_PROP_SIZE,72,72,164,12,ES_AUTOHSCROLL | ES_READONLY | 
+                    NOT WS_BORDER
+    EDITTEXT        IDC_PROP_MODIFIED,72,85,164,12,ES_AUTOHSCROLL | 
+                    ES_READONLY | NOT WS_BORDER
     GROUPBOX        " Raw STAT reply",IDC_STATIC,7,103,235,88
-    EDITTEXT        IDC_PROP_RAWSTAT,15,113,220,73,ES_MULTILINE | ES_AUTOVSCROLL | ES_AUTOHSCROLL | ES_READONLY | NOT WS_BORDER
+    EDITTEXT        IDC_PROP_RAWSTAT,15,113,220,73,ES_MULTILINE | 
+                    ES_AUTOVSCROLL | ES_AUTOHSCROLL | ES_READONLY | NOT 
+                    WS_BORDER
 END
 
-IDD_PROXY DIALOG  0, 0, 280, 119
-STYLE DS_SETFONT | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+IDD_PROXY DIALOG DISCARDABLE  0, 0, 280, 119
+STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "Proxy Settings"
 FONT 8, "Microsoft Sans Serif"
 BEGIN
-    CONTROL         "&No proxy",IDC_NOPROXY,"Button",BS_AUTORADIOBUTTON,12,19,45,10
-    CONTROL         "HTTP CONNECT",IDC_OTHERPROXY,"Button",BS_AUTORADIOBUTTON,67,19,67,10
-    CONTROL         "SOCKS 4/4a",IDC_SOCKS4APROXY,"Button",BS_AUTORADIOBUTTON,144,19,53,10
-    CONTROL         "SOCKS 5",IDC_SOCKS5PROXY,"Button",BS_AUTORADIOBUTTON,200,19,44,10
-    CONTROL         "Proxy host:",IDC_STATIC,"Static",SS_SIMPLE | WS_GROUP,12,36,43,8
+    CONTROL         "&No proxy",IDC_NOPROXY,"Button",BS_AUTORADIOBUTTON,12,
+                    19,45,10
+    CONTROL         "HTTP CONNECT",IDC_OTHERPROXY,"Button",
+                    BS_AUTORADIOBUTTON,67,19,67,10
+    CONTROL         "SOCKS 4/4a",IDC_SOCKS4APROXY,"Button",
+                    BS_AUTORADIOBUTTON,144,19,53,10
+    CONTROL         "SOCKS 5",IDC_SOCKS5PROXY,"Button",BS_AUTORADIOBUTTON,
+                    200,19,44,10
+    CONTROL         "Proxy host:",IDC_STATIC,"Static",SS_SIMPLE | WS_GROUP,
+                    12,36,43,8
     EDITTEXT        IDC_PROXYSERVER,69,34,198,12,ES_AUTOHSCROLL
-    CONTROL         "Proxy user name:",IDC_STATIC,"Static",SS_SIMPLE | WS_GROUP,12,52,54,8
+    CONTROL         "Proxy user name:",IDC_STATIC,"Static",SS_SIMPLE | 
+                    WS_GROUP,12,52,54,8
     EDITTEXT        IDC_PROXYUSERNAME,69,50,198,12,ES_AUTOHSCROLL
-    CONTROL         "Proxy password:",IDC_STATIC,"Static",SS_SIMPLE | WS_GROUP,12,67,55,8
-    EDITTEXT        IDC_PROXYPASSWORD,69,66,198,12,ES_PASSWORD | ES_AUTOHSCROLL
+    CONTROL         "Proxy password:",IDC_STATIC,"Static",SS_SIMPLE | 
+                    WS_GROUP,12,67,55,8
+    EDITTEXT        IDC_PROXYPASSWORD,69,66,198,12,ES_PASSWORD | 
+                    ES_AUTOHSCROLL
     PUSHBUTTON      "?",IDC_PROXYHELP,256,19,12,10
     GROUPBOX        "Proxy settings",IDC_STATIC,7,7,266,88
-    PUSHBUTTON      "Change password...",IDC_EDITPASS,69,66,198,14,NOT WS_VISIBLE
-    CONTROL         "Protect password with password manager (TC>=7.5)",IDC_CRYPTPASS,
-                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,12,81,258,10
+    PUSHBUTTON      "Change password...",IDC_EDITPASS,69,66,198,14,NOT 
+                    WS_VISIBLE
+    CONTROL         "Protect password with password manager (TC>=7.5)",
+                    IDC_CRYPTPASS,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,12,
+                    81,258,10
     DEFPUSHBUTTON   "OK",IDOK,167,98,50,14
     PUSHBUTTON      "Cancel",IDCANCEL,223,98,50,14
 END
@@ -511,7 +583,7 @@ END
 //
 
 #ifdef APSTUDIO_INVOKED
-GUIDELINES DESIGNINFO 
+GUIDELINES DESIGNINFO DISCARDABLE 
 BEGIN
     IDD_WEBDAV, DIALOG
     BEGIN
@@ -545,7 +617,7 @@ END
 // String Table
 //
 
-STRINGTABLE 
+STRINGTABLE DISCARDABLE 
 BEGIN
     IDS_STRING12001         "Out of handles"
     IDS_STRING12002         "Timeout"
@@ -564,7 +636,7 @@ BEGIN
     IDS_STRING12015         "Login failure"
 END
 
-STRINGTABLE 
+STRINGTABLE DISCARDABLE 
 BEGIN
     IDS_STRING12016         "Invalid operation"
     IDS_STRING12017         "Operation cancelled"
@@ -584,7 +656,7 @@ BEGIN
     IDS_STRING12031         "Connection reset"
 END
 
-STRINGTABLE 
+STRINGTABLE DISCARDABLE 
 BEGIN
     IDS_STRING12032         "Force retry"
     IDS_STRING12033         "Invalid proxy request"
@@ -604,7 +676,7 @@ BEGIN
     IDS_STRING12047         "Async thread failed"
 END
 
-STRINGTABLE 
+STRINGTABLE DISCARDABLE 
 BEGIN
     IDS_STRING12048         "Redirect scheme change"
     IDS_STRING12049         "Dialog pending"
@@ -614,14 +686,14 @@ BEGIN
     IDS_STRING12053         "Insert CD-ROM"
 END
 
-STRINGTABLE 
+STRINGTABLE DISCARDABLE 
 BEGIN
     IDS_F7NEW               "_F7=new connection.txt"
     IDS_HELPTEXT            "Plugin help:\r\nF7:\tcreate new connection\r\nF8/Del:\tDelete connection\r\nEnter\tConnect\r\nAlt+Enter Change options"
     IDS_QUICKCONNECT        "_Quick Connection"
 END
 
-STRINGTABLE 
+STRINGTABLE DISCARDABLE 
 BEGIN
     IDS_HELP_CAPTION        "Help"
     IDS_HELP_UTF8           "Here you can configure how the server sends file names with accents. When you choose 'auto-detect', the plugin will get some environment variables (like LANG) and send the command 'locale' to determine the character encoding used by the server. This may not work with all servers, so if you know that your server uses UTF-8, or file names in file lists appear with strange looking characters instead of accents, then please choose 'yes' manually."
@@ -639,7 +711,7 @@ BEGIN
     IDS_ERR_AUTH_KEYBDINT   "Error: Authentication by keyboard-interactive failed!"
 END
 
-STRINGTABLE 
+STRINGTABLE DISCARDABLE 
 BEGIN
     IDS_ERR_INIT_SFTP       "Error: Could not initialize SFTP session!\n"
     IDS_PROXY_PASSWORD_FOR  "SFTP proxy password for "
@@ -660,7 +732,7 @@ BEGIN
     IDS_ERR_LOAD_PUBKEY     "Cannot open public key file!\n"
 END
 
-STRINGTABLE 
+STRINGTABLE DISCARDABLE 
 BEGIN
     IDS_ERR_LOAD_PRIVKEY    "Cannot open private key file!\n"
     IDS_ERR_PUBKEY_WRONG_FORMAT 
@@ -681,7 +753,7 @@ BEGIN
     IDS_GET_DIR             "Get directory: "
 END
 
-STRINGTABLE 
+STRINGTABLE DISCARDABLE 
 BEGIN
     IDS_ERR_GET_DIR         "Directory not opened: "
     IDS_MK_DIR              "Create directory: "
@@ -701,7 +773,7 @@ BEGIN
     IDS_SOCKS5PROXYERR      "SOCKS 5 Proxy user/password error!"
 END
 
-STRINGTABLE 
+STRINGTABLE DISCARDABLE 
 BEGIN
     IDS_GENERALSOCKSFAILURE "General SOCKS server failure!"
     IDS_CONNNOTALLOWED      "Connection not allowed by ruleset!"
@@ -721,7 +793,7 @@ BEGIN
     IDS_MACOS               "MacOS (2)"
 END
 
-STRINGTABLE 
+STRINGTABLE DISCARDABLE 
 BEGIN
     IDS_1250                "Eastern Europe (1250)"
     IDS_1251                "Cyrillic Windows (1251)"
@@ -741,7 +813,7 @@ BEGIN
     IDS_850                 "DOS-LATIN1 (850)"
 END
 
-STRINGTABLE 
+STRINGTABLE DISCARDABLE 
 BEGIN
     IDS_20866               "Cyrillic KOI8-R (20866)"
     IDS_OTHER               "Other (enter manually)"
@@ -762,18 +834,18 @@ BEGIN
     IDS_PROXY_PASS_TITLE    "Proxy password for user: "
 END
 
-STRINGTABLE 
+STRINGTABLE DISCARDABLE 
 BEGIN
     IDS_PASS_TITLE          "Server password for user: "
     IDS_PASS_CHANGE_REQUEST "The server requests that you change your password. New password:"
 END
 
-#endif    // Englisch (USA) resources
+#endif    // English (U.S.) resources
 /////////////////////////////////////////////////////////////////////////////
 
 
 /////////////////////////////////////////////////////////////////////////////
-// Franzosisch (Frankreich) resources
+// French (France) resources
 
 #if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_FRA)
 #ifdef _WIN32
@@ -787,14 +859,16 @@ LANGUAGE LANG_FRENCH, SUBLANG_FRENCH
 //
 
 IDD_WEBDAV DIALOGEX 0, 0, 276, 278
-STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
+STYLE DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
 EXSTYLE WS_EX_NOPARENTNOTIFY
 CAPTION "Connecter au serveur SFTP"
-FONT 8, "MS Shell Dlg", 0, 0, 0x1
+FONT 8, "MS Shell Dlg"
 BEGIN
-    LTEXT           "&Connecter à : (serveur/chemin ou serveur:port/chemin)",IDC_STATIC,3,3,179,8
+    LTEXT           "&Connecter à : (serveur/chemin ou serveur:port/chemin)",
+                    IDC_STATIC,3,3,179,8
     EDITTEXT        1000,5,17,266,12,ES_AUTOHSCROLL
-    CONTROL         "Auto",1027,"Button",BS_AUTORADIOBUTTON | WS_GROUP | WS_TABSTOP,183,2,27,10
+    CONTROL         "Auto",1027,"Button",BS_AUTORADIOBUTTON | WS_GROUP | 
+                    WS_TABSTOP,183,2,27,10
     CONTROL         "IPv4",1028,"Button",BS_AUTORADIOBUTTON,212,2,29,10
     CONTROL         "IPv6",1029,"Button",BS_AUTORADIOBUTTON,244,2,31,10
     LTEXT           "Nom &utilisateur:",IDC_STATIC,5,32,266,8
@@ -802,11 +876,14 @@ BEGIN
     LTEXT           "Mot de &Passe:",IDC_STATIC,5,58,82,8
     CONTROL         "Utiliser l'agent de PuTTY (Pageant)",IDC_USEAGENT,
                     "Button",BS_AUTOCHECKBOX | WS_TABSTOP,90,58,125,8
-    PUSHBUTTON      "Changer le mot de passe...",IDC_EDITPASS,5,71,266,14,NOT WS_VISIBLE
+    PUSHBUTTON      "Changer le mot de passe...",IDC_EDITPASS,5,71,266,14,
+                    NOT WS_VISIBLE
     EDITTEXT        1002,5,68,266,12,ES_PASSWORD | ES_AUTOHSCROLL
-    CONTROL         "Protéger le mot de passe avec mot de passe maître (TC>=7.5)",IDC_CRYPTPASS,
-                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,5,82,266,10
-    GROUPBOX        "Certificat client d'authentification:",IDC_STATIC,5,92,266,60
+    CONTROL         "Protéger le mot de passe avec mot de passe maître (TC>=7.5)",
+                    IDC_CRYPTPASS,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,5,82,
+                    266,10
+    GROUPBOX        "Certificat client d'authentification:",IDC_STATIC,5,92,
+                    266,59
     LTEXT           "Fichier clé publique (*.pub):",IDC_STATIC,10,103,100,8
     EDITTEXT        1004,10,112,239,12,ES_AUTOHSCROLL
     PUSHBUTTON      ">>",1019,250,112,16,12
@@ -814,25 +891,33 @@ BEGIN
     EDITTEXT        1003,10,136,239,12,ES_AUTOHSCROLL
     PUSHBUTTON      ">>",1020,250,136,16,12
     PUSHBUTTON      "?",1024,254,100,12,10
-    CONTROL         "Compresser avec ZLIB (Attention: peut échouer sur certains serveurs)",1008,
-                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,5,155,266,10
-    CONTROL         "Journal &détaillé (cibler les erreurs pour déboguer)",1007,
-                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,5,166,233,10
-    CONTROL         "Utiliser SCP pour transferts (plus rapide)",IDC_SCP_DATA,
-                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,5,177,146,10
+    CONTROL         "Compresser avec ZLIB (Attention: peut échouer sur certains serveurs)",
+                    1008,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,5,152,266,8
+    CONTROL         "Journal &détaillé (cibler les erreurs pour déboguer)",
+                    1007,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,5,162,233,8
+    CONTROL         "Utiliser SCP pour transferts (plus rapide)",
+                    IDC_SCP_DATA,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,5,172,
+                    146,8
+    CONTROL         "Utiliser SCP pour tout (pas d'SFTP)",IDC_SCP_ALL,"Button",
+                    BS_AUTOCHECKBOX | WS_TABSTOP,5,182,146,8
     LTEXT           "System:",IDC_STATIC,155,178,34,8
-    COMBOBOX        IDC_SYSTEM,189,176,78,30,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    COMBOBOX        IDC_SYSTEM,189,176,78,30,CBS_DROPDOWNLIST | WS_VSCROLL | 
+                    WS_TABSTOP
     CONTROL         "Codage des caractères envoyés au serveur:",IDC_STATIC,
                     "Static",SS_SIMPLE | WS_GROUP,5,191,143,8
-    COMBOBOX        IDC_UTF8,149,189,104,126,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    COMBOBOX        IDC_UTF8,149,189,104,126,CBS_DROPDOWNLIST | WS_VSCROLL | 
+                    WS_TABSTOP
     PUSHBUTTON      "?",IDC_UTF8HELP,254,190,12,10
-    GROUPBOX        " D&roits utilis. sur nouv. fichiers¦dossiers créées : ",IDC_STATIC,5,202,266,26
-    CONTROL         "Nouv. fichiers (Envoi):",IDC_STATIC,"Static",SS_SIMPLE | WS_GROUP,13,214,70,8
+    GROUPBOX        " D&roits utilis. sur nouv. fichiers¦dossiers créées : ",
+                    IDC_STATIC,5,202,266,26
+    CONTROL         "Nouv. fichiers (Envoi):",IDC_STATIC,"Static",SS_SIMPLE | 
+                    WS_GROUP,13,214,70,8
     EDITTEXT        1025,87,212,28,12,ES_AUTOHSCROLL | ES_NUMBER
     LTEXT           "Nouv. dossiers:",IDC_STATIC,175,214,58,8
     EDITTEXT        1026,236,212,28,12,ES_AUTOHSCROLL | ES_NUMBER
     LTEXT           "Agencements “Proxy”:",IDC_STATIC,5,231,266,8
-    COMBOBOX        IDC_PROXYCOMBO,5,241,244,30,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    COMBOBOX        IDC_PROXYCOMBO,5,241,244,30,CBS_DROPDOWNLIST | 
+                    WS_VSCROLL | WS_TABSTOP
     PUSHBUTTON      ">>",IDC_PROXYBUTTON,251,240,20,14
     PUSHBUTTON      "Supprimer le dernier proxy",IDC_DELETELAST,5,256,90,14
     DEFPUSHBUTTON   "Confirmer",1,165,258,50,14
@@ -840,7 +925,7 @@ BEGIN
 END
 
 IDD_PROPERTIES DIALOGEX 0, 0, 249, 214
-STYLE DS_SETFONT | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "Propriétés"
 FONT 8, "MS Shell Dlg", 0, 0, 0x1
 BEGIN
@@ -853,36 +938,53 @@ BEGIN
     LTEXT           "Autorisations :",IDC_STATIC,16,59,50,8
     LTEXT           "Taille :",IDC_STATIC,16,72,50,8
     LTEXT           "Dernière modif. :",IDC_STATIC,16,85,50,8
-    EDITTEXT        IDC_PROP_NAME,72,20,164,12,ES_AUTOHSCROLL | ES_READONLY | NOT WS_BORDER
-    EDITTEXT        IDC_PROP_OWNER,72,33,164,12,ES_AUTOHSCROLL | ES_READONLY | NOT WS_BORDER
-    EDITTEXT        IDC_PROP_GROUP,72,46,164,12,ES_AUTOHSCROLL | ES_READONLY | NOT WS_BORDER
-    EDITTEXT        IDC_PROP_PERMISSIONS,72,59,164,12,ES_AUTOHSCROLL | ES_READONLY | NOT WS_BORDER
-    EDITTEXT        IDC_PROP_SIZE,72,72,164,12,ES_AUTOHSCROLL | ES_READONLY | NOT WS_BORDER
-    EDITTEXT        IDC_PROP_MODIFIED,72,85,164,12,ES_AUTOHSCROLL | ES_READONLY | NOT WS_BORDER
+    EDITTEXT        IDC_PROP_NAME,72,20,164,12,ES_AUTOHSCROLL | ES_READONLY | 
+                    NOT WS_BORDER
+    EDITTEXT        IDC_PROP_OWNER,72,33,164,12,ES_AUTOHSCROLL | ES_READONLY | 
+                    NOT WS_BORDER
+    EDITTEXT        IDC_PROP_GROUP,72,46,164,12,ES_AUTOHSCROLL | ES_READONLY | 
+                    NOT WS_BORDER
+    EDITTEXT        IDC_PROP_PERMISSIONS,72,59,164,12,ES_AUTOHSCROLL | 
+                    ES_READONLY | NOT WS_BORDER
+    EDITTEXT        IDC_PROP_SIZE,72,72,164,12,ES_AUTOHSCROLL | ES_READONLY | 
+                    NOT WS_BORDER
+    EDITTEXT        IDC_PROP_MODIFIED,72,85,164,12,ES_AUTOHSCROLL | 
+                    ES_READONLY | NOT WS_BORDER
     GROUPBOX        "Réponse d'état brute (“STAT”)",IDC_STATIC,7,103,235,88
-    EDITTEXT        IDC_PROP_RAWSTAT,15,113,220,73,ES_MULTILINE | ES_AUTOVSCROLL | ES_AUTOHSCROLL | ES_READONLY | NOT WS_BORDER
+    EDITTEXT        IDC_PROP_RAWSTAT,15,113,220,73,ES_MULTILINE | 
+                    ES_AUTOVSCROLL | ES_AUTOHSCROLL | ES_READONLY | NOT 
+                    WS_BORDER
 END
 
 IDD_PROXY DIALOGEX 0, 0, 280, 121
-STYLE DS_SETFONT | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "Agencements “Proxy”"
 FONT 8, "MS Shell Dlg", 0, 0, 0x1
 BEGIN
-    CONTROL         "Pas de pro&xy",IDC_NOPROXY,"Button",BS_AUTORADIOBUTTON,12,20,54,10
-    CONTROL         "HTTP CONNECT",IDC_OTHERPROXY,"Button",BS_AUTORADIOBUTTON,67,20,67,10
-    CONTROL         "SOCKS 4/4a",IDC_SOCKS4APROXY,"Button",BS_AUTORADIOBUTTON,144,20,53,10
-    CONTROL         "SOCKS 5",IDC_SOCKS5PROXY,"Button",BS_AUTORADIOBUTTON,200,20,44,10
-    CONTROL         "Proxy host:",IDC_STATIC,"Static",SS_SIMPLE | WS_GROUP,12,36,52,8
+    CONTROL         "Pas de pro&xy",IDC_NOPROXY,"Button",BS_AUTORADIOBUTTON,
+                    12,20,54,10
+    CONTROL         "HTTP CONNECT",IDC_OTHERPROXY,"Button",
+                    BS_AUTORADIOBUTTON,67,20,67,10
+    CONTROL         "SOCKS 4/4a",IDC_SOCKS4APROXY,"Button",
+                    BS_AUTORADIOBUTTON,144,20,53,10
+    CONTROL         "SOCKS 5",IDC_SOCKS5PROXY,"Button",BS_AUTORADIOBUTTON,
+                    200,20,44,10
+    CONTROL         "Proxy host:",IDC_STATIC,"Static",SS_SIMPLE | WS_GROUP,
+                    12,36,52,8
     EDITTEXT        1018,77,34,193,12,ES_AUTOHSCROLL
-    CONTROL         "Nom utilis. “Proxy”:",IDC_STATIC,"Static",SS_SIMPLE | WS_GROUP,12,52,64,8
+    CONTROL         "Nom utilis. “Proxy”:",IDC_STATIC,"Static",SS_SIMPLE | 
+                    WS_GROUP,12,52,64,8
     EDITTEXT        1012,77,50,193,12,ES_AUTOHSCROLL
-    CONTROL         "Mot de p. “Proxy”:",IDC_STATIC,"Static",SS_SIMPLE | WS_GROUP,12,67,59,8
+    CONTROL         "Mot de p. “Proxy”:",IDC_STATIC,"Static",SS_SIMPLE | 
+                    WS_GROUP,12,67,59,8
     EDITTEXT        1013,77,66,193,12,ES_PASSWORD | ES_AUTOHSCROLL
     PUSHBUTTON      "?",1014,256,20,12,10
     GROUPBOX        "Agencements “Proxy”",IDC_STATIC,7,7,266,89
-    PUSHBUTTON      "Changer le mot de passe...",IDC_EDITPASS,77,65,193,14,NOT WS_VISIBLE
-    CONTROL         "Protéger le mot de passe avec mot de passe maître (TC>=7.5)",IDC_CRYPTPASS,
-                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,12,82,257,10
+    PUSHBUTTON      "Changer le mot de passe...",IDC_EDITPASS,77,65,193,14,
+                    NOT WS_VISIBLE
+    CONTROL         "Protéger le mot de passe avec mot de passe maître (TC>=7.5)",
+                    IDC_CRYPTPASS,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,12,
+                    82,257,10
     DEFPUSHBUTTON   "Confirmer",1,167,100,50,14
     PUSHBUTTON      "Annuler",2,223,100,50,14
 END
@@ -894,7 +996,7 @@ END
 //
 
 #ifdef APSTUDIO_INVOKED
-GUIDELINES DESIGNINFO 
+GUIDELINES DESIGNINFO DISCARDABLE 
 BEGIN
     IDD_WEBDAV, DIALOG
     BEGIN
@@ -928,7 +1030,7 @@ END
 // String Table
 //
 
-STRINGTABLE 
+STRINGTABLE DISCARDABLE 
 BEGIN
     12001                   "A. F.actives hors contrôle"
     12002                   "Délai dépassé"
@@ -947,7 +1049,7 @@ BEGIN
     12015                   "Échec d'inscription"
 END
 
-STRINGTABLE 
+STRINGTABLE DISCARDABLE 
 BEGIN
     12016                   "Opération pas valable"
     12017                   "Opération annulée"
@@ -967,7 +1069,7 @@ BEGIN
     12031                   "Connexion rétablie"
 END
 
-STRINGTABLE 
+STRINGTABLE DISCARDABLE 
 BEGIN
     12032                   "Forcer à retenter"
     12033                   "Requête proxy incongrue"
@@ -987,7 +1089,7 @@ BEGIN
     12047                   "Échec de couche async."
 END
 
-STRINGTABLE 
+STRINGTABLE DISCARDABLE 
 BEGIN
     12048                   "Changer le schéma de renvoi"
     12049                   "Dialogue en souffrance"
@@ -997,14 +1099,14 @@ BEGIN
     12053                   "Insérer le cédérom"
 END
 
-STRINGTABLE 
+STRINGTABLE DISCARDABLE 
 BEGIN
     IDS_F7NEW               "_F7=nouvelle connexion.txt"
     IDS_HELPTEXT            "Aide du module:\nF7:\tCréer nouvelle connexion\nF8/Suppr:\tSupprimer la connexion\nEntrée\tConnecter\nAlt+Entrée\tChanger d'options"
     IDS_QUICKCONNECT        "_Connexion rapide"
 END
 
-STRINGTABLE 
+STRINGTABLE DISCARDABLE 
 BEGIN
     IDS_HELP_CAPTION        "Aide"
     IDS_HELP_PROXY          "On peut choisir de connecter directement, ou de définir un serveur proxy de la formeY proxy(:port). Si le proxy requiert nom-utilisateur¦mot de passe, on doit les entrer ici. Le proxy doit permettre la commande CONNECT au port du serveur SSH, ou doit supporter le protocole SOCKS."
@@ -1021,7 +1123,7 @@ BEGIN
     IDS_ERR_AUTH_KEYBDINT   "Erreur : échec d'authentification par clavier interactif !"
 END
 
-STRINGTABLE 
+STRINGTABLE DISCARDABLE 
 BEGIN
     IDS_ERR_INIT_SFTP       "Erreur : n'a pu initialiser la session SFTP !\n"
     IDS_PROXY_PASSWORD_FOR  "Mot de passe SFTP du proxy pour "
@@ -1042,7 +1144,7 @@ BEGIN
     IDS_ERR_LOAD_PUBKEY     "Ne peut ouvrir le fichier de clé publique !\n"
 END
 
-STRINGTABLE 
+STRINGTABLE DISCARDABLE 
 BEGIN
     IDS_ERR_LOAD_PRIVKEY    "Ne peut ouvrir le fichier de clé privée !\n"
     IDS_ERR_PUBKEY_WRONG_FORMAT 
@@ -1063,7 +1165,7 @@ BEGIN
     IDS_GET_DIR             "Obtenir le répertoire : "
 END
 
-STRINGTABLE 
+STRINGTABLE DISCARDABLE 
 BEGIN
     IDS_ERR_GET_DIR         "Répertoire encore fermé : "
     IDS_MK_DIR              "Créer le répertoire: "
@@ -1083,7 +1185,7 @@ BEGIN
     IDS_SOCKS5PROXYERR      "SOCKS 5 Proxy erreur dans le nom ou le mot de passe!"
 END
 
-STRINGTABLE 
+STRINGTABLE DISCARDABLE 
 BEGIN
     IDS_GENERALSOCKSFAILURE "Erreur générale du proxy SOCKS!"
     IDS_CONNNOTALLOWED      "Connexion pas autorisée par les règles du proxy!"
@@ -1100,7 +1202,7 @@ BEGIN
     IDS_MACOS               "MacOS (2)"
 END
 
-STRINGTABLE 
+STRINGTABLE DISCARDABLE 
 BEGIN
     IDS_1250                "Europe orientale (1250)"
     IDS_1251                "Windows Cyrillique (1251)"
@@ -1120,7 +1222,7 @@ BEGIN
     IDS_850                 "DOS-LATIN1 (850)"
 END
 
-STRINGTABLE 
+STRINGTABLE DISCARDABLE 
 BEGIN
     IDS_20866               "Cyrillique KOI8-R (20866)"
     IDS_OTHER               "Autre (saisir manuellement)"
@@ -1141,18 +1243,17 @@ BEGIN
     IDS_PROXY_PASS_TITLE    "PROXY: Mot de passe pour l'utilisateur: "
 END
 
-STRINGTABLE 
+STRINGTABLE DISCARDABLE 
 BEGIN
     IDS_PASS_TITLE          "Mot de passe pour l'utilisateur: "
-    IDS_PASS_CHANGE_REQUEST "Le serveur demande que vous changez votre mot de passe. Nouveau mot de passe:"
 END
 
-#endif    // Franzosisch (Frankreich) resources
+#endif    // French (France) resources
 /////////////////////////////////////////////////////////////////////////////
 
 
 /////////////////////////////////////////////////////////////////////////////
-// Deutsch (Schweiz) resources
+// German (Switzerland) resources
 
 #if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_DES)
 #ifdef _WIN32
@@ -1166,18 +1267,18 @@ LANGUAGE LANG_GERMAN, SUBLANG_GERMAN_SWISS
 // TEXTINCLUDE
 //
 
-1 TEXTINCLUDE 
+1 TEXTINCLUDE DISCARDABLE 
 BEGIN
     "resource.h\0"
 END
 
-2 TEXTINCLUDE 
+2 TEXTINCLUDE DISCARDABLE 
 BEGIN
     "#include ""afxres.h""\r\n"
     "\0"
 END
 
-3 TEXTINCLUDE 
+3 TEXTINCLUDE DISCARDABLE 
 BEGIN
     "\r\n"
     "\0"
@@ -1193,12 +1294,12 @@ END
 
 // Icon with lowest ID value placed first to ensure application icon
 // remains consistent on all systems.
-IDI_ICON0               ICON                    "iconconnection.ico"
-IDI_ICON1               ICON                    "icon1.ico"
-IDI_ICON2               ICON                    "icon2.ico"
-IDI_ICON1SMALL          ICON                    "icon3.ico"
-IDI_ICON2SMALL          ICON                    "icon4.ico"
-#endif    // Deutsch (Schweiz) resources
+IDI_ICON0               ICON    DISCARDABLE     "iconconnection.ico"
+IDI_ICON1               ICON    DISCARDABLE     "icon1.ico"
+IDI_ICON2               ICON    DISCARDABLE     "icon2.ico"
+IDI_ICON1SMALL          ICON    DISCARDABLE     "icon3.ico"
+IDI_ICON2SMALL          ICON    DISCARDABLE     "icon4.ico"
+#endif    // German (Switzerland) resources
 /////////////////////////////////////////////////////////////////////////////
 
 

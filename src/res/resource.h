@@ -147,6 +147,7 @@
 #define IDC_DEFAULTCOMBO                1011
 #define IDC_SCP_DATA                    1011
 #define IDC_PROXYUSERNAME               1012
+#define IDC_SCP_ALL                     1012
 #define IDC_PROXYPASSWORD               1013
 #define IDC_PROXYHELP                   1014
 #define IDC_PROXYHELP2                  1015

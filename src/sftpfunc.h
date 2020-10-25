@@ -40,6 +40,7 @@ typedef struct {
     unsigned short customport;
     int filemod;
     int dirmod;
+    BOOL scponly;
     BOOL scpfordata;
     BOOL dialogforconnection;
     BOOL compressed;
@@ -49,7 +50,7 @@ typedef struct {
     char utf8names;        // 0=no, 1=yes, -1=auto-detect
     int codepage;          // only used when utf8names=0
     char unixlinebreaks;   // 0=no, 1=yes, -1=auto-detect
-    int proxynr;       // 0=no proxy, >0 use entry  [proxy], [proxy2] etc.
+    int proxynr;           // 0=no proxy, >0 use entry  [proxy], [proxy2] etc.
     int proxytype;         // 0=no, 1=default, 2=custom
     char proxyserver[MAX_PATH];
     char proxyuser[MAX_PATH];
@@ -58,6 +59,7 @@ typedef struct {
     int lastpercent;
     int passSaveMode;
     BOOL InteractivePasswordSent;
+    int trycustomlistcommand;  // set to 2 initially, reduce to 1 or 0 if failing
 } tConnectSettings, *pConnectSettings;
 
 void* SftpConnectToServer(char* DisplayName, char* inifilename, char* overridepass);
@@ -85,4 +87,4 @@ BOOL SftpQuoteCommand(void* serverid, char* remotedir, char* cmd);
 void SftpShowPropertiesW(void* serverid, WCHAR* remotename);
 void SftpSetTransferModeW(WCHAR* mode);
 BOOL SftpDetermineTransferModeW(WCHAR* RemoteName);
-
+BOOL SftpSupportsResume(void* serverid);

@@ -107,9 +107,9 @@ SERVERID GetServerIdAndRelativePathFromPath(char* Path, char* RelativePath, int 
             p++;
         strlcat(RelativePath, p, maxlen);
         if (RelativePath[0] == 0)
-            strcpy_s(RelativePath, maxlen, "\\");
+            strlcpy(RelativePath, "\\", maxlen-1);
     } else if (maxlen)
-        strcpy_s(RelativePath, maxlen, "\\");
+        strlcpy(RelativePath, "\\", maxlen-1);
     return serverid;
 }
 
@@ -120,17 +120,17 @@ SERVERID GetServerIdAndRelativePathFromPathW(WCHAR* Path, WCHAR* RelativePath, i
     GetDisplayNameFromPath(PathA, DisplayName, sizeof(DisplayName)-1);
     SERVERID serverid = GetServerIdFromName(DisplayName, GetCurrentThreadId());
     if (serverid) {
-        RelativePath[0]=0;
-        WCHAR* p=Path;
+        RelativePath[0] = 0;
+        WCHAR* p = Path;
         while (p[0] == '\\' || p[0] == '/')  // skip initial slash
             p++;
         while (p[0] != 0 && p[0] != '\\' && p[0] != '/') // skip path
             p++;
         wcslcat(RelativePath, p, maxlen);
         if (RelativePath[0] == 0)
-            wcscpy_s(RelativePath, maxlen, L"\\");
+            wcslcpy(RelativePath, L"\\", maxlen-1);
     } else if (maxlen)
-        wcscpy_s(RelativePath, maxlen, L"\\");
+        wcslcpy(RelativePath, L"\\", maxlen-1);
     return serverid;
 }
 
@@ -177,7 +177,7 @@ BOOL WINAPI FsDisconnect(char* DisconnectRoot)
     SERVERID serverid = GetServerIdFromName(DisplayName, GetCurrentThreadId());
     if (serverid) {
         char connbuf[wdirtypemax];
-        strcpy_s(connbuf, sizeof(connbuf), "DISCONNECT \\");
+        strlcpy(connbuf, "DISCONNECT \\", sizeof(connbuf)-1);
         strlcat(connbuf, DisplayName, sizeof(connbuf)-1);
         LogProc(PluginNumber, MSGTYPE_DISCONNECT, connbuf);
         SftpCloseConnection(serverid);
@@ -719,7 +719,7 @@ int WINAPI FsPutFileW(WCHAR* LocalName, WCHAR* RemoteName, int CopyFlags)
 
     switch (SftpUploadFileW(serverid, LocalName, remotedir, Resume, (CopyFlags & FS_COPYFLAGS_EXISTS_SAMECASE) == 0)) {
         case SFTP_OK:          return FS_FILE_OK;
-        case SFTP_EXISTS:      return FS_FILE_EXISTSRESUMEALLOWED;
+        case SFTP_EXISTS:      return SftpSupportsResume(serverid) ? FS_FILE_EXISTSRESUMEALLOWED : FS_FILE_EXISTS;
         case SFTP_READFAILED:  return FS_FILE_READERROR;
         case SFTP_WRITEFAILED: return FS_FILE_WRITEERROR;
         case SFTP_ABORT:       return FS_FILE_USERABORT;
