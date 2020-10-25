@@ -177,7 +177,7 @@ void Conv2Chars(char* buf, int nr)
         buf[0] = '0';
         buf[1] = '0' + nr;
     } else {
-        itoa(nr, buf, 10);
+        _itoa(nr, buf, 10);
     }
 }
 
@@ -188,7 +188,7 @@ BOOL CreateIsoDateString(FILETIME *ft, char* buf)
     buf[0] = 0;
     FileTimeToLocalFileTime(ft, &ft2);  // Totalcmd expects system time!
     if (FileTimeToSystemTime(&ft2, &datetime)) {
-        itoa(datetime.wYear, buf, 10);
+        _itoa(datetime.wYear, buf, 10);
         Conv2Chars(buf+4, datetime.wMonth);
         Conv2Chars(buf+6, datetime.wDay);
         Conv2Chars(buf+8, datetime.wHour);

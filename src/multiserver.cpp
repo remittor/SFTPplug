@@ -30,7 +30,7 @@ int LoadServersFromIni(char* inifilename, char* quickconnectname)
 {
     // Retrieve server list
     int servercount = 0;
-    char serverlist[8192];
+    char serverlist[65535];
     PSERVERENTRY preventry = NULL;
     BOOL updating = (server_linked_list != NULL);
     if (updating) { // list exists -> update!
@@ -55,7 +55,7 @@ int LoadServersFromIni(char* inifilename, char* quickconnectname)
             if (updating) {  // look if entry already exists
                 PSERVERENTRY thisentry = server_linked_list;
                 while (thisentry) {
-                    if (stricmp(thisentry->displayname, p) == 0) {
+                    if (_stricmp(thisentry->displayname, p) == 0) {
                         thisentry->serverupdated = true;
                         serverfound = true;
                         break;
@@ -133,7 +133,7 @@ BOOL DeleteServerFromIni(char* servername, char* inifilename)
 int CopyMoveServerInIni(char* oldservername, char* newservername, BOOL Move, BOOL OverWrite, char* inifilename)
 {
     char captlist[1024];
-    if (stricmp(oldservername, newservername) == 0)
+    if (_stricmp(oldservername, newservername) == 0)
         return 0;
 
     // now copy the options
@@ -187,7 +187,7 @@ SERVERID GetServerIdFromName(char* displayname, DWORD threadid)
             PSERVERENTRY thisentry;
             thisentry = server_linked_list;
             while (thisentry) {
-                if (stricmp(thisentry->displayname, displayname) == 0)
+                if (_stricmp(thisentry->displayname, displayname) == 0)
                     return thisentry->serverid;
                 thisentry = (PSERVERENTRY)(thisentry->next);
             }
@@ -199,7 +199,7 @@ SERVERID GetServerIdFromName(char* displayname, DWORD threadid)
                 PSERVERENTRY thisentry;
                 thisentry = background_linked_list;
                 while (thisentry) {
-                    if (stricmp(thisentry->displayname, displayname) == 0 && thisentry->threadid == threadid)
+                    if (_stricmp(thisentry->displayname, displayname) == 0 && thisentry->threadid == threadid)
                         return thisentry->serverid;
                     thisentry = (PSERVERENTRY)(thisentry->next);
                 }
@@ -220,7 +220,7 @@ BOOL SetServerIdForName(char* displayname, SERVERID newid)
             PSERVERENTRY thisentry;
             thisentry = server_linked_list;
             while (thisentry) {
-                if (stricmp(thisentry->displayname, displayname) == 0) {
+                if (_stricmp(thisentry->displayname, displayname) == 0) {
                     if (thisentry->serverid)
                         free(thisentry->serverid);
                     thisentry->serverid = newid;
@@ -237,7 +237,7 @@ BOOL SetServerIdForName(char* displayname, SERVERID newid)
                 preventry = NULL;
                 thisentry = background_linked_list;
                 while (thisentry) {
-                    if (stricmp(thisentry->displayname, displayname) == 0 &&
+                    if (_stricmp(thisentry->displayname, displayname) == 0 &&
                         thisentry->threadid == id) {
                         if (thisentry->serverid)
                             free(thisentry->serverid);

@@ -11,6 +11,7 @@
 #define SFTP_READFAILED  3
 #define SFTP_WRITEFAILED 4
 #define SFTP_ABORT       5
+#define SFTP_PARTIAL     6
 
 extern int PluginNumber;
 extern char s_quickconnect[32];
@@ -63,6 +64,11 @@ typedef struct {
     int passSaveMode;
     BOOL InteractivePasswordSent;
     int trycustomlistcommand;  // set to 2 initially, reduce to 1 or 0 if failing
+    int keepAliveIntervalSeconds; // 0 (disabled) by default
+    HWND hWndKeepAlive;
+    int scpserver64bit;     // 0=no, 1=yes, -1, auto-detect -> Support file upload/download > 2GB only if SCP on server side is 64bit!
+                            // There might be 32bit SCP implementations with large file support but we cannot detect it. 
+    BOOL scpserver64bittemporary;  // true=user allowed transfers>2GB
 } tConnectSettings, *pConnectSettings;
 
 void* SftpConnectToServer(char* DisplayName, char* inifilename, char* overridepass);
@@ -91,3 +97,6 @@ void SftpShowPropertiesW(void* serverid, WCHAR* remotename);
 void SftpSetTransferModeW(WCHAR* mode);
 BOOL SftpDetermineTransferModeW(WCHAR* RemoteName);
 BOOL SftpSupportsResume(void* serverid);
+int  SftpServerSupportsChecksumsW(void* serverid, WCHAR* RemoteName);
+HANDLE SftpStartFileChecksumW(int ChecksumType, void* serverid, WCHAR* RemoteName);
+int  SftpGetFileChecksumResultW(BOOL WantResult, HANDLE ChecksumHandle, void* serverid, char* checksum, int maxlen);

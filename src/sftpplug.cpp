@@ -304,8 +304,8 @@ BOOL WINAPI FsFindNextW(HANDLE Hdl, WIN32_FIND_DATAW *FindData)
     pLastFindStuct lf;
     char name[wdirtypemax];
 
-    if ((int)Hdl == 1)
-      return false;
+    if (Hdl == (HANDLE)1)
+        return false;
 
     lf = (pLastFindStuct)Hdl;
     if (lf != INVALID_HANDLE_VALUE) {
@@ -672,12 +672,16 @@ int WINAPI FsGetFileW(WCHAR* RemoteName, WCHAR* LocalName, int CopyFlags, Remote
 
     __int64 filesize = (((__int64)ri->SizeHigh) << 32) + ri->SizeLow;
     
-    switch (SftpDownloadFileW(serverid, remotedir, LocalName, true, filesize, &ri->LastWriteTime, Resume)) {
-        case SFTP_OK:          return FS_FILE_OK;
-        case SFTP_EXISTS:      return FS_FILE_EXISTS;
-        case SFTP_READFAILED:  return FS_FILE_READERROR;
-        case SFTP_WRITEFAILED: return FS_FILE_WRITEERROR;
-        case SFTP_ABORT:       return FS_FILE_USERABORT;
+    while (true) {  // auto-resume loop
+        switch (SftpDownloadFileW(serverid, remotedir, LocalName, true, filesize, &ri->LastWriteTime, Resume)) {
+            case SFTP_OK:          return FS_FILE_OK;
+            case SFTP_EXISTS:      return FS_FILE_EXISTS;
+            case SFTP_READFAILED:  return FS_FILE_READERROR;
+            case SFTP_WRITEFAILED: return FS_FILE_WRITEERROR;
+            case SFTP_ABORT:       return FS_FILE_USERABORT;
+            case SFTP_PARTIAL:     Resume = true; break;
+            default: return FS_FILE_OK;
+        }
     }
     return FS_FILE_OK;
 }
@@ -910,5 +914,63 @@ int WINAPI FsExtractCustomIcon(char* RemoteName, int ExtractFlags, HICON* TheIco
 int WINAPI FsGetBackgroundFlags(void)
 {
     return BG_DOWNLOAD | BG_UPLOAD | BG_ASK_USER;
+}
+
+int __stdcall FsServerSupportsChecksumsW(WCHAR* RemoteName)
+{
+    WCHAR remotedir[wdirtypemax];
+    SERVERID serverid = GetServerIdAndRelativePathFromPathW(RemoteName, remotedir, countof(remotedir)-1);
+    if (serverid == NULL)
+        return 0;
+
+    pConnectSettings ConnectSettings = (pConnectSettings)serverid;
+    if (ConnectSettings)
+        ConnectSettings->lastpercent = 0;
+    return SftpServerSupportsChecksumsW(serverid, remotedir);
+}
+
+int __stdcall FsServerSupportsChecksums(char* RemoteName)
+{
+    WCHAR RemoteNameW[wdirtypemax];
+    return FsServerSupportsChecksumsW(awfilenamecopy(RemoteNameW, RemoteName));
+}
+
+HANDLE __stdcall FsStartFileChecksumW(int ChecksumType, WCHAR* RemoteName)
+{
+    WCHAR remotedir[wdirtypemax];
+    SERVERID serverid = GetServerIdAndRelativePathFromPathW(RemoteName, remotedir, countof(remotedir)-1);
+    if (serverid == NULL)
+        return 0;
+
+    pConnectSettings ConnectSettings = (pConnectSettings)serverid;
+    if (ConnectSettings)
+        ConnectSettings->lastpercent = 0;
+    return SftpStartFileChecksumW(ChecksumType, serverid, remotedir);
+}
+
+HANDLE __stdcall FsStartFileChecksum(int ChecksumType, char* RemoteName)
+{
+    WCHAR RemoteNameW[wdirtypemax];
+    return FsStartFileChecksumW(ChecksumType, awfilenamecopy(RemoteNameW, RemoteName));
+}
+
+
+int __stdcall FsGetFileChecksumResultW(BOOL WantResult, HANDLE ChecksumHandle, WCHAR* RemoteName, char* checksum, int maxlen)
+{
+    WCHAR remotedir[wdirtypemax];
+    SERVERID serverid = GetServerIdAndRelativePathFromPathW(RemoteName, remotedir, countof(remotedir)-1);
+    if (serverid == NULL)
+        return 0;
+
+    pConnectSettings ConnectSettings = (pConnectSettings)serverid;
+    if (ConnectSettings)
+        ConnectSettings->lastpercent = 0;
+    return SftpGetFileChecksumResultW(WantResult, ChecksumHandle, serverid, checksum, maxlen);
+}
+
+int __stdcall FsGetFileChecksumResult(BOOL WantResult, HANDLE ChecksumHandle, char* RemoteName, char* checksum, int maxlen)
+{
+    WCHAR RemoteNameW[wdirtypemax];
+    return FsGetFileChecksumResultW(WantResult, ChecksumHandle, awfilenamecopy(RemoteNameW, RemoteName), checksum, maxlen);
 }
 

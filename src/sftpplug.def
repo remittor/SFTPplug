@@ -30,3 +30,9 @@ EXPORTS
 	FsDisconnect
 	FsExtractCustomIcon
 	FsGetBackgroundFlags
+	FsServerSupportsChecksums
+	FsServerSupportsChecksumsW
+	FsStartFileChecksum
+	FsStartFileChecksumW
+	FsGetFileChecksumResult
+	FsGetFileChecksumResultW

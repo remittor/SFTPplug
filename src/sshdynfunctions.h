@@ -55,10 +55,16 @@ FUNCDEF(LIBSSH2_API int ,libssh2_channel_wait_eof,(LIBSSH2_CHANNEL *channel));
 FUNCDEF(LIBSSH2_API int ,libssh2_channel_close,(LIBSSH2_CHANNEL *channel));
 FUNCDEF(LIBSSH2_API int ,libssh2_channel_wait_closed,(LIBSSH2_CHANNEL *channel));
 FUNCDEF(LIBSSH2_API int ,libssh2_channel_free,(LIBSSH2_CHANNEL *channel));
-FUNCDEF(LIBSSH2_API LIBSSH2_CHANNEL *,libssh2_scp_recv,(LIBSSH2_SESSION *session, const char *path, struct stat *sb));
+// libssh2_scp_recv is DEPRECATED
+//FUNCDEF(LIBSSH2_API LIBSSH2_CHANNEL *,libssh2_scp_recv,(LIBSSH2_SESSION *session, const char *path, struct stat *sb));
+FUNCDEF(LIBSSH2_API LIBSSH2_CHANNEL *,libssh2_scp_recv2,(LIBSSH2_SESSION *session, const char *path, libssh2_struct_stat *sb));
 FUNCDEF(LIBSSH2_API LIBSSH2_CHANNEL *,libssh2_scp_send_ex,(LIBSSH2_SESSION *session, const char *path, int mode, size_t size, long mtime, long atime));
+FUNCDEF(LIBSSH2_API LIBSSH2_CHANNEL *,libssh2_scp_send64,(LIBSSH2_SESSION *session, const char *path, int mode, libssh2_uint64_t size, time_t mtime, time_t atime));
 FUNCDEF(LIBSSH2_API int ,libssh2_base64_decode,(LIBSSH2_SESSION *session, char **dest, unsigned int *dest_len, const char *src, unsigned int src_len));
 FUNCDEF(LIBSSH2_API int ,libssh2_trace,(LIBSSH2_SESSION *session, int bitmask));
+FUNCDEF(LIBSSH2_API void,libssh2_keepalive_config,(LIBSSH2_SESSION *session, int want_reply, unsigned interval));
+FUNCDEF(LIBSSH2_API int ,libssh2_keepalive_send,(LIBSSH2_SESSION *session, int *seconds_to_next));
+
 
 /* SFTP *************************************************/
 FUNCDEF(LIBSSH2_API LIBSSH2_SFTP *, libssh2_sftp_init, (LIBSSH2_SESSION *session));

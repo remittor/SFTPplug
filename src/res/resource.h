@@ -129,6 +129,9 @@
 #define IDS_PROXY_PASS_TITLE            255
 #define IDS_PASS_TITLE                  256
 #define IDS_PASS_CHANGE_REQUEST         257
+#define IDS_DLL_VERSION                 258
+#define IDS_STRING258                   258
+#define IDS_NO_2GB_SUPPORT              259
 #define IDC_CONNECTTO                   1000
 #define IDC_USERNAME                    1001
 #define IDC_PASSWORD                    1002
@@ -149,6 +152,7 @@
 #define IDC_PROXYUSERNAME               1012
 #define IDC_SCP_ALL                     1012
 #define IDC_PROXYPASSWORD               1013
+#define IDC_KEEP_ALIVE                  1013
 #define IDC_PROXYHELP                   1014
 #define IDC_PROXYHELP2                  1015
 #define IDC_PROXYSERVER                 1018
@@ -167,6 +171,8 @@
 #define IDC_PROTOV4                     1028
 #define IDC_PROTOV6                     1029
 #define IDC_PROP_NAME                   1030
+#define IDC_FILEMOD2                    1030
+#define IDC_KEEP_ALIVE_SECONDS          1030
 #define IDC_PROP_OWNER                  1031
 #define IDC_PROP_GROUP                  1032
 #define IDC_PROP_PERMISSIONS            1033

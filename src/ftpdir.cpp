@@ -133,6 +133,8 @@ WCHAR* FindUnixPermissions(WCHAR* lpStr, DWORD* UnixAttr)
         ch = upcase(lpStr[i]);
         if (wcschr(L"-DLFBCP|", ch)) {
             if (check(lpStr + i + 1, UnixAttr) || NovellUnix(lpStr + i + 1)) {
+                if (ch == 'L')
+                    (*UnixAttr) |= 0xA000;
                 return lpStr + i;
             }
         }
@@ -583,7 +585,7 @@ BOOL ReadDirLineUNIX(WCHAR* lpStr, WCHAR* thename, int maxlen, __int64* sizefile
     *UnixAttr = 0;
     WCHAR testbuf[8];
     wcslcpy2(testbuf, lpStr, 6);
-    wcsupr(testbuf);
+    _wcsupr(testbuf);
     if (wcsncmp(testbuf, L"TOTAL", 5)==0)
         return false;
 

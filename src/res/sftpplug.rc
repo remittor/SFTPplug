@@ -26,21 +26,17 @@ LANGUAGE LANG_GERMAN, SUBLANG_GERMAN
 // Dialog
 //
 
-IDD_WEBDAV DIALOGEX 0, 0, 276, 279
-STYLE DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
+IDD_WEBDAV DIALOGEX 0, 0, 276, 288
+STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
 EXSTYLE WS_EX_NOPARENTNOTIFY
 CAPTION "Verbinden mit SFTP-Server"
-FONT 8, "MS Shell Dlg"
+FONT 8, "MS Shell Dlg", 0, 0, 0x1
 BEGIN
-    LTEXT           "&Verbinden mit (Server/Pfad oder Server:Port/Pfad)",
-                    IDC_STATIC,5,5,166,8
+    LTEXT           "&Verbinden mit (Server/Pfad oder Server:Port/Pfad)", IDC_STATIC,5,5,166,8
     EDITTEXT        IDC_CONNECTTO,5,15,266,12,ES_AUTOHSCROLL
-    CONTROL         "Auto",IDC_PROTOAUTO,"Button",BS_AUTORADIOBUTTON | 
-                    WS_GROUP | WS_TABSTOP,176,5,27,10
-    CONTROL         "IPv4",IDC_PROTOV4,"Button",BS_AUTORADIOBUTTON,208,5,31,
-                    10
-    CONTROL         "IPv6",IDC_PROTOV6,"Button",BS_AUTORADIOBUTTON,240,5,31,
-                    10
+    CONTROL         "Auto",IDC_PROTOAUTO,"Button",BS_AUTORADIOBUTTON | WS_GROUP | WS_TABSTOP,176,5,27,10
+    CONTROL         "IPv4",IDC_PROTOV4,"Button",BS_AUTORADIOBUTTON,208,5,31,10
+    CONTROL         "IPv6",IDC_PROTOV6,"Button",BS_AUTORADIOBUTTON,240,5,31,10
     LTEXT           "&Benutzername:",IDC_STATIC,5,31,266,8
     EDITTEXT        IDC_USERNAME,5,42,266,12,ES_AUTOHSCROLL
     LTEXT           "&Kennwort:",IDC_STATIC,5,58,69,8
@@ -58,47 +54,41 @@ BEGIN
                     103,240,8
     EDITTEXT        IDC_PUBKEY,10,112,239,12,ES_AUTOHSCROLL
     PUSHBUTTON      ">>",IDC_LOADPUBKEY,250,112,16,12
-    LTEXT           "Private Schlüsseldatei (*.pem):",IDC_STATICPEM,10,126,
-                    253,8
+    LTEXT           "Private Schlüsseldatei (*.pem):",IDC_STATICPEM,10,126, 253,8
     EDITTEXT        IDC_PRIVKEY,10,136,239,12,ES_AUTOHSCROLL
     PUSHBUTTON      ">>",IDC_LOADPRIVKEY,250,136,16,12
     PUSHBUTTON      "?",IDC_CERTHELP,254,100,12,10
     CONTROL         "Kom&pression mit ZLIB (Warnung: Bei einigen Servern schlägt Verbindung fehl)",
-                    IDC_COMPRESS,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,5,152,
-                    266,8
-    CONTROL         "Schreibe komplette Verzeichnislisten in &Logdatei (für Fehleranalyse)",
-                    IDC_DETAILED_LOG,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,5,
-                    162,266,8
+                    IDC_COMPRESS,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,5,152, 266,8
+    CONTROL         "Schreibe komplette Verzeichnislisten in &Logdatei (für Fehleranalyse)",IDC_DETAILED_LOG,
+"Button",BS_AUTOCHECKBOX | WS_TABSTOP,5,          162,266,8
+    CONTROL         "Sende Befehl zur Aufrechterhaltung der Verbindung (Sekunden):",IDC_KEEP_ALIVE,
+                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,5,172,220,8
+    EDITTEXT        IDC_KEEP_ALIVE_SECONDS,236,170,28,12,ES_AUTOHSCROLL | ES_NUMBER
     CONTROL         "Benutze SCP für Transfers (schneller!)",IDC_SCP_DATA,
-                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,5,172,145,8
-    CONTROL         "Benutze SCP für alles (kein SFTP)",IDC_SCP_ALL,"Button",
-                    BS_AUTOCHECKBOX | WS_TABSTOP,5,182,146,8
-    LTEXT           "System:",IDC_STATIC,155,177,34,8
-    COMBOBOX        IDC_SYSTEM,189,175,78,30,CBS_DROPDOWNLIST | WS_VSCROLL | 
-                    WS_TABSTOP
+                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,5,182,145,8
+    CONTROL         "Benutze SCP für alles (kein SFTP)",IDC_SCP_ALL,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,5,192,146,8
+    LTEXT           "System:",IDC_STATIC,155,187,34,8
+    COMBOBOX        IDC_SYSTEM,189,185,78,30,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
     CONTROL         "Codierung der Dateinamen auf dem Server:",IDC_STATIC,
-                    "Static",SS_SIMPLE | WS_GROUP,5,191,142,8
-    COMBOBOX        IDC_UTF8,149,188,104,127,CBS_DROPDOWNLIST | WS_VSCROLL | 
-                    WS_TABSTOP
-    PUSHBUTTON      "?",IDC_UTF8HELP,254,189,12,10
-    GROUPBOX        " Benutzer&rechte von neu angelegten Dateien/Verzeichnissen: ",
-                    IDC_STATIC,5,201,266,26
-    CONTROL         "Neue Dateien (Upload):",IDC_STATIC,"Static",SS_SIMPLE | 
-                    WS_GROUP,13,213,79,8
-    EDITTEXT        IDC_FILEMOD,95,211,28,12,ES_AUTOHSCROLL | ES_NUMBER
-    LTEXT           "Neue Verzeichnisse:",IDC_STATIC,162,213,73,8
-    EDITTEXT        IDC_DIRMOD,236,211,28,12,ES_AUTOHSCROLL | ES_NUMBER
-    LTEXT           "Proxy-Einstellungen:",IDC_STATIC,5,231,266,8
-    COMBOBOX        IDC_PROXYCOMBO,5,241,244,30,CBS_DROPDOWNLIST | 
-                    WS_VSCROLL | WS_TABSTOP
-    PUSHBUTTON      ">>",IDC_PROXYBUTTON,251,240,20,14
-    PUSHBUTTON      "Letzten Proxy löschen",IDC_DELETELAST,5,256,80,14
-    DEFPUSHBUTTON   "OK",IDOK,165,259,50,14
-    PUSHBUTTON      "Cancel",IDCANCEL,221,259,50,14
+                    "Static",SS_SIMPLE | WS_GROUP,5,201,142,8
+    COMBOBOX        IDC_UTF8,148,199,104,127,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    PUSHBUTTON      "?",IDC_UTF8HELP,253,200,12,10
+    GROUPBOX        " Benutzer&rechte von neu angelegten Dateien/Verzeichnissen: ",IDC_STATIC,5,212,266,26
+    CONTROL         "Neue Dateien (Upload):",IDC_STATIC,"Static",SS_SIMPLE | WS_GROUP,13,224,79,8
+    EDITTEXT        IDC_FILEMOD,95,222,28,12,ES_AUTOHSCROLL | ES_NUMBER
+    LTEXT           "Neue Verzeichnisse:",IDC_STATIC,162,224,73,8
+    EDITTEXT        IDC_DIRMOD,236,222,28,12,ES_AUTOHSCROLL | ES_NUMBER
+    LTEXT           "Proxy-Einstellungen:",IDC_STATIC,5,241,266,8
+    COMBOBOX        IDC_PROXYCOMBO,5,251,244,30,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    PUSHBUTTON      ">>",IDC_PROXYBUTTON,251,250,20,14
+    PUSHBUTTON      "Letzten Proxy löschen",IDC_DELETELAST,5,266,80,14
+    DEFPUSHBUTTON   "OK",IDOK,165,269,50,14
+    PUSHBUTTON      "Abbrechen",IDCANCEL,221,269,50,14
 END
 
 IDD_PROPERTIES DIALOGEX 0, 0, 249, 214
-STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+STYLE DS_SETFONT | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "Eigenschaften"
 FONT 8, "MS Shell Dlg", 0, 0, 0x1
 BEGIN
@@ -130,7 +120,7 @@ BEGIN
 END
 
 IDD_PROXY DIALOGEX 0, 0, 280, 120
-STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+STYLE DS_SETFONT | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "Proxyeinstellungen"
 FONT 8, "MS Shell Dlg", 0, 0, 0x1
 BEGIN
@@ -177,7 +167,7 @@ BEGIN
         LEFTMARGIN, 5
         RIGHTMARGIN, 271
         TOPMARGIN, 5
-        BOTTOMMARGIN, 273
+        BOTTOMMARGIN, 282
     END
 
     IDD_PROPERTIES, DIALOG
@@ -421,8 +411,10 @@ END
 STRINGTABLE DISCARDABLE 
 BEGIN
     IDS_PASS_TITLE          "Server-Passwort für Benutzer: "
+    IDS_PASS_CHANGE_REQUEST "Der Server fordert Sie dazu auf, Ihr Passwort zu ändern. Neues Passwort:"
+    IDS_DLL_VERSION         "Sie benötigen libssh2 Version 1.7.0 oder neuer für Dateien > 2 GB über SCP."
+    IDS_NO_2GB_SUPPORT      "Der Server unterstützt möglicherweise keinen Dateitransfer >2GB via SCP. Trotzdem versuchen?"
 END
-
 #endif    // German (Germany) resources
 /////////////////////////////////////////////////////////////////////////////
 
@@ -441,79 +433,65 @@ LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_US
 // Dialog
 //
 
-IDD_WEBDAV DIALOGEX 0, 0, 276, 281
-STYLE DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
+IDD_WEBDAV DIALOGEX 0, 0, 276, 288
+STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
 EXSTYLE WS_EX_NOPARENTNOTIFY
 CAPTION "Connect to SFTP Server"
-FONT 8, "MS Shell Dlg"
+FONT 8, "MS Shell Dlg", 0, 0, 0x1
 BEGIN
-    LTEXT           "&Connect to: (server/path or server:port/path)",
-                    IDC_STATIC,5,5,166,8
-    CONTROL         "Auto",IDC_PROTOAUTO,"Button",BS_AUTORADIOBUTTON | 
-                    WS_GROUP | WS_TABSTOP,176,5,27,10
-    CONTROL         "IPv4",IDC_PROTOV4,"Button",BS_AUTORADIOBUTTON,208,5,31,
-                    10
-    CONTROL         "IPv6",IDC_PROTOV6,"Button",BS_AUTORADIOBUTTON,240,5,31,
-                    10
+    LTEXT           "&Connect to: (server/path or server:port/path)", IDC_STATIC,5,5,166,8
+    CONTROL         "Auto",IDC_PROTOAUTO,"Button",BS_AUTORADIOBUTTON | WS_GROUP | WS_TABSTOP,176,5,27,10
+    CONTROL         "IPv4",IDC_PROTOV4,"Button",BS_AUTORADIOBUTTON,208,5,31,10
+    CONTROL         "IPv6",IDC_PROTOV6,"Button",BS_AUTORADIOBUTTON,240,5,31,10
     EDITTEXT        IDC_CONNECTTO,5,15,266,12,ES_AUTOHSCROLL
     LTEXT           "&User name:",IDC_STATIC,5,31,266,8
     EDITTEXT        IDC_USERNAME,5,42,266,12,ES_AUTOHSCROLL
     LTEXT           "&Password:",IDC_STATIC,5,58,61,8
-    CONTROL         "Use PuTTY agent (Pageant)",IDC_USEAGENT,"Button",
-                    BS_AUTOCHECKBOX | WS_TABSTOP,90,58,122,8
-    PUSHBUTTON      "Change password...",IDC_EDITPASS,5,71,266,14,NOT 
-                    WS_VISIBLE
+    CONTROL         "Use PuTTY agent (Pageant)",IDC_USEAGENT,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,90,58,122,8
+    PUSHBUTTON      "Change password...",IDC_EDITPASS,5,71,266,14,NOT WS_VISIBLE
     EDITTEXT        IDC_PASSWORD,5,68,266,12,ES_PASSWORD | ES_AUTOHSCROLL
-    CONTROL         "Protect password with password manager (TC>=7.5)",
-                    IDC_CRYPTPASS,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,5,82,
-                    266,10
-    GROUPBOX        "Client certificate for &authentication:",IDC_STATIC,5,
-                    93,266,60
-    LTEXT           "Public key file (*.pub):",IDC_STATIC,10,104,240,8
-    EDITTEXT        IDC_PUBKEY,10,113,239,12,ES_AUTOHSCROLL
-    PUSHBUTTON      ">>",IDC_LOADPUBKEY,250,113,16,12
-    LTEXT           "Private key file (*.pem):",IDC_STATIC,10,127,253,8
-    EDITTEXT        IDC_PRIVKEY,10,137,239,12,ES_AUTOHSCROLL
-    PUSHBUTTON      ">>",IDC_LOADPRIVKEY,250,137,16,12
-    PUSHBUTTON      "?",IDC_CERTHELP,254,101,12,10
-    CONTROL         "Compress data with &ZLIB (Warning: connection may fail with some servers)",
-                    IDC_COMPRESS,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,5,154,
-                    266,10
-    CONTROL         "Show entire directory listings in log (for &debugging purposes)",
-                    IDC_DETAILED_LOG,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,5,
-                    164,266,10
+    CONTROL         "Protect password with password manager (TC>=7.5)",IDC_CRYPTPASS,
+"Button",BS_AUTOCHECKBOX | WS_TABSTOP,5,82, 266,10
+    GROUPBOX        "Client certificate for &authentication:",IDC_STATIC,5,92,266,60
+    LTEXT           "Public key file (*.pub):",IDC_STATIC,10,103,240,8
+    EDITTEXT        IDC_PUBKEY,10,112,239,12,ES_AUTOHSCROLL
+    PUSHBUTTON      ">>",IDC_LOADPUBKEY,250,112,16,12
+    LTEXT           "Private key file (*.pem):",IDC_STATIC,10,126,253,8
+    EDITTEXT        IDC_PRIVKEY,10,136,239,12,ES_AUTOHSCROLL
+    PUSHBUTTON      ">>",IDC_LOADPRIVKEY,250,136,16,12
+    PUSHBUTTON      "?",IDC_CERTHELP,254,100,12,10
+    CONTROL         "Compress data with &ZLIB (Warning: connection may fail with some servers)",IDC_COMPRESS,
+                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,5,152,266,10
+    CONTROL         "Show entire directory listings in log (for &debugging purposes)",IDC_DETAILED_LOG,
+                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,5,162,266,10
+    CONTROL         "Send command to keep alive connection (seconds):",IDC_KEEP_ALIVE,
+                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,5,172,220,8
+    EDITTEXT        IDC_KEEP_ALIVE_SECONDS,236,170,28,12,ES_AUTOHSCROLL | ES_NUMBER
     CONTROL         "Use SCP for data transfers (faster!)",IDC_SCP_DATA,
-                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,5,174,146,10
-    CONTROL         "Use SCP for everything (no SFTP)",IDC_SCP_ALL,"Button",
-                    BS_AUTOCHECKBOX | WS_TABSTOP,5,184,146,10
-    LTEXT           "System:",IDC_STATIC,155,179,34,8
-    COMBOBOX        IDC_SYSTEM,189,177,78,30,CBS_DROPDOWNLIST | WS_VSCROLL | 
-                    WS_TABSTOP
-    CONTROL         "Encoding (codepage) of file names:",IDC_STATIC,"Static",
-                    SS_SIMPLE | WS_GROUP,5,194,140,8
-    COMBOBOX        IDC_UTF8,148,192,104,127,CBS_DROPDOWNLIST | WS_VSCROLL | 
-                    WS_TABSTOP
-    PUSHBUTTON      "?",IDC_UTF8HELP,253,193,12,10
-    GROUPBOX        " User &rights of newly created files/directories: ",
-                    IDC_STATIC,5,203,266,26
-    CONTROL         "New files (Upload):",IDC_STATIC,"Static",SS_SIMPLE | 
-                    WS_GROUP,13,216,70,8
-    EDITTEXT        IDC_FILEMOD,87,214,28,12,ES_AUTOHSCROLL | ES_NUMBER
-    LTEXT           "New folders:",IDC_STATIC,185,216,47,8
-    EDITTEXT        IDC_DIRMOD,236,214,28,12,ES_AUTOHSCROLL | ES_NUMBER
-    LTEXT           "Proxy settings:",IDC_STATIC,5,234,266,8
-    COMBOBOX        IDC_PROXYCOMBO,5,244,244,30,CBS_DROPDOWNLIST | 
-                    WS_VSCROLL | WS_TABSTOP
-    PUSHBUTTON      ">>",IDC_PROXYBUTTON,251,243,20,14
-    PUSHBUTTON      "Delete last proxy",IDC_DELETELAST,5,258,65,14
-    DEFPUSHBUTTON   "OK",IDOK,165,262,50,14
-    PUSHBUTTON      "Cancel",IDCANCEL,221,262,50,14
+                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,5,182,146,10
+    CONTROL         "Use SCP for everything (no SFTP)",IDC_SCP_ALL,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,5,192,146,10
+    LTEXT           "System:",IDC_STATIC,155,187,34,8
+    COMBOBOX        IDC_SYSTEM,189,185,78,30,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    CONTROL         "Encoding (codepage) of file names:",IDC_STATIC,"Static",SS_SIMPLE | WS_GROUP,5,202,140,8
+    COMBOBOX        IDC_UTF8,148,199,104,127,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    PUSHBUTTON      "?",IDC_UTF8HELP,253,200,12,10
+    GROUPBOX        " User &rights of newly created files/directories: ",IDC_STATIC,5,212,266,26
+    CONTROL         "New files (Upload):",IDC_STATIC,"Static",SS_SIMPLE | WS_GROUP,13,224,70,8
+    EDITTEXT        IDC_FILEMOD,87,222,28,12,ES_AUTOHSCROLL | ES_NUMBER
+    LTEXT           "New folders:",IDC_STATIC,185,224,47,8
+    EDITTEXT        IDC_DIRMOD,236,222,28,12,ES_AUTOHSCROLL | ES_NUMBER
+    LTEXT           "Proxy settings:",IDC_STATIC,5,241,266,8
+    COMBOBOX        IDC_PROXYCOMBO,5,251,244,30,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    PUSHBUTTON      ">>",IDC_PROXYBUTTON,251,250,20,14
+    PUSHBUTTON      "Delete last proxy",IDC_DELETELAST,5,266,65,14
+    DEFPUSHBUTTON   "OK",IDOK,165,269,50,14
+    PUSHBUTTON      "Cancel",IDCANCEL,221,269,50,14
 END
 
-IDD_PROPERTIES DIALOG DISCARDABLE  0, 0, 249, 214
-STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+IDD_PROPERTIES DIALOGEX DISCARDABLE  0, 0, 249, 214
+STYLE DS_SETFONT | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "Properties"
-FONT 8, "Microsoft Sans Serif"
+FONT 8, "MS Shell Dlg", 0, 0, 0x1
 BEGIN
     DEFPUSHBUTTON   "OK",IDOK,123,193,50,14
     PUSHBUTTON      "Cancel",IDCANCEL,192,193,50,14
@@ -542,10 +520,10 @@ BEGIN
                     WS_BORDER
 END
 
-IDD_PROXY DIALOG DISCARDABLE  0, 0, 280, 119
-STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+IDD_PROXY DIALOGEX DISCARDABLE  0, 0, 280, 119
+STYLE DS_SETFONT | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "Proxy Settings"
-FONT 8, "Microsoft Sans Serif"
+FONT 8, "MS Shell Dlg", 0, 0, 0x1
 BEGIN
     CONTROL         "&No proxy",IDC_NOPROXY,"Button",BS_AUTORADIOBUTTON,12,
                     19,45,10
@@ -590,7 +568,7 @@ BEGIN
         LEFTMARGIN, 5
         RIGHTMARGIN, 271
         TOPMARGIN, 5
-        BOTTOMMARGIN, 276
+        BOTTOMMARGIN, 283
     END
 
     IDD_PROPERTIES, DIALOG
@@ -838,6 +816,8 @@ STRINGTABLE DISCARDABLE
 BEGIN
     IDS_PASS_TITLE          "Server password for user: "
     IDS_PASS_CHANGE_REQUEST "The server requests that you change your password. New password:"
+    IDS_DLL_VERSION         "libssh2 has to be version 1.7.0 or higher to support filesize > 2 GB over SCP."
+    IDS_NO_2GB_SUPPORT      "The server may not support the transfer of files >2GB via SCP! Try anyway?"
 END
 
 #endif    // English (U.S.) resources
@@ -858,17 +838,15 @@ LANGUAGE LANG_FRENCH, SUBLANG_FRENCH
 // Dialog
 //
 
-IDD_WEBDAV DIALOGEX 0, 0, 276, 278
-STYLE DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
+IDD_WEBDAV DIALOGEX 0, 0, 276, 288
+STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
 EXSTYLE WS_EX_NOPARENTNOTIFY
 CAPTION "Connecter au serveur SFTP"
-FONT 8, "MS Shell Dlg"
+FONT 8, "MS Shell Dlg", 0, 0, 0x1
 BEGIN
-    LTEXT           "&Connecter à : (serveur/chemin ou serveur:port/chemin)",
-                    IDC_STATIC,3,3,179,8
+    LTEXT           "&Connecter à : (serveur/chemin ou serveur:port/chemin)", IDC_STATIC,3,3,179,8
     EDITTEXT        1000,5,17,266,12,ES_AUTOHSCROLL
-    CONTROL         "Auto",1027,"Button",BS_AUTORADIOBUTTON | WS_GROUP | 
-                    WS_TABSTOP,183,2,27,10
+    CONTROL         "Auto",1027,"Button",BS_AUTORADIOBUTTON | WS_GROUP | WS_TABSTOP,183,2,27,10
     CONTROL         "IPv4",1028,"Button",BS_AUTORADIOBUTTON,212,2,29,10
     CONTROL         "IPv6",1029,"Button",BS_AUTORADIOBUTTON,244,2,31,10
     LTEXT           "Nom &utilisateur:",IDC_STATIC,5,32,266,8
@@ -876,14 +854,11 @@ BEGIN
     LTEXT           "Mot de &Passe:",IDC_STATIC,5,58,82,8
     CONTROL         "Utiliser l'agent de PuTTY (Pageant)",IDC_USEAGENT,
                     "Button",BS_AUTOCHECKBOX | WS_TABSTOP,90,58,125,8
-    PUSHBUTTON      "Changer le mot de passe...",IDC_EDITPASS,5,71,266,14,
-                    NOT WS_VISIBLE
+    PUSHBUTTON      "Changer le mot de passe...",IDC_EDITPASS,5,71,266,14, NOT WS_VISIBLE
     EDITTEXT        1002,5,68,266,12,ES_PASSWORD | ES_AUTOHSCROLL
-    CONTROL         "Protéger le mot de passe avec mot de passe maître (TC>=7.5)",
-                    IDC_CRYPTPASS,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,5,82,
-                    266,10
-    GROUPBOX        "Certificat client d'authentification:",IDC_STATIC,5,92,
-                    266,59
+    CONTROL         "Protéger le mot de passe avec mot de passe maître (TC>=7.5)",IDC_CRYPTPASS,
+"Button",BS_AUTOCHECKBOX | WS_TABSTOP,5,82,                    266,10
+    GROUPBOX        "Certificat client d'authentification:",IDC_STATIC,5,92,                    266,59
     LTEXT           "Fichier clé publique (*.pub):",IDC_STATIC,10,103,100,8
     EDITTEXT        1004,10,112,239,12,ES_AUTOHSCROLL
     PUSHBUTTON      ">>",1019,250,112,16,12
@@ -891,41 +866,36 @@ BEGIN
     EDITTEXT        1003,10,136,239,12,ES_AUTOHSCROLL
     PUSHBUTTON      ">>",1020,250,136,16,12
     PUSHBUTTON      "?",1024,254,100,12,10
-    CONTROL         "Compresser avec ZLIB (Attention: peut échouer sur certains serveurs)",
-                    1008,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,5,152,266,8
-    CONTROL         "Journal &détaillé (cibler les erreurs pour déboguer)",
-                    1007,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,5,162,233,8
-    CONTROL         "Utiliser SCP pour transferts (plus rapide)",
-                    IDC_SCP_DATA,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,5,172,
-                    146,8
-    CONTROL         "Utiliser SCP pour tout (pas d'SFTP)",IDC_SCP_ALL,"Button",
-                    BS_AUTOCHECKBOX | WS_TABSTOP,5,182,146,8
-    LTEXT           "System:",IDC_STATIC,155,178,34,8
-    COMBOBOX        IDC_SYSTEM,189,176,78,30,CBS_DROPDOWNLIST | WS_VSCROLL | 
-                    WS_TABSTOP
+    CONTROL         "Compresser avec ZLIB (Attention: peut échouer sur certains serveurs)",1008,
+                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,5,152,266,8
+    CONTROL         "Journal &détaillé (cibler les erreurs pour déboguer)",1007,
+                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,5,162,233,8
+    CONTROL         "Envoyer la commande pour maintenir la connexion (secondes):",IDC_KEEP_ALIVE,
+                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,5,172,220,8
+    EDITTEXT        IDC_KEEP_ALIVE_SECONDS,236,170,28,12,ES_AUTOHSCROLL | ES_NUMBER
+    CONTROL         "Utiliser SCP pour transferts (plus rapide)",IDC_SCP_DATA,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,5,182,146,8
+    CONTROL         "Utiliser SCP pour tout (pas d'SFTP)",IDC_SCP_ALL,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,5,192,146,8
+    LTEXT           "System:",IDC_STATIC,155,188,34,8
+    COMBOBOX        IDC_SYSTEM,189,186,78,30,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
     CONTROL         "Codage des caractères envoyés au serveur:",IDC_STATIC,
-                    "Static",SS_SIMPLE | WS_GROUP,5,191,143,8
-    COMBOBOX        IDC_UTF8,149,189,104,126,CBS_DROPDOWNLIST | WS_VSCROLL | 
-                    WS_TABSTOP
-    PUSHBUTTON      "?",IDC_UTF8HELP,254,190,12,10
-    GROUPBOX        " D&roits utilis. sur nouv. fichiers¦dossiers créées : ",
-                    IDC_STATIC,5,202,266,26
-    CONTROL         "Nouv. fichiers (Envoi):",IDC_STATIC,"Static",SS_SIMPLE | 
-                    WS_GROUP,13,214,70,8
-    EDITTEXT        1025,87,212,28,12,ES_AUTOHSCROLL | ES_NUMBER
-    LTEXT           "Nouv. dossiers:",IDC_STATIC,175,214,58,8
-    EDITTEXT        1026,236,212,28,12,ES_AUTOHSCROLL | ES_NUMBER
-    LTEXT           "Agencements “Proxy”:",IDC_STATIC,5,231,266,8
-    COMBOBOX        IDC_PROXYCOMBO,5,241,244,30,CBS_DROPDOWNLIST | 
-                    WS_VSCROLL | WS_TABSTOP
+                    "Static",SS_SIMPLE | WS_GROUP,5,201,143,8
+    COMBOBOX        IDC_UTF8,149,199,104,126,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    PUSHBUTTON      "?",IDC_UTF8HELP,254,200,12,10
+    GROUPBOX        " D&roits utilis. sur nouv. fichiers¦dossiers créées : ",IDC_STATIC,5,212,266,26
+    CONTROL         "Nouv. fichiers (Envoi):",IDC_STATIC,"Static",SS_SIMPLE | WS_GROUP,13,224,70,8
+    EDITTEXT        1025,87,222,28,12,ES_AUTOHSCROLL | ES_NUMBER
+    LTEXT           "Nouv. dossiers:",IDC_STATIC,175,224,58,8
+    EDITTEXT        1026,236,222,28,12,ES_AUTOHSCROLL | ES_NUMBER
+    LTEXT           "Agencements “Proxy”:",IDC_STATIC,5,241,266,8
+    COMBOBOX        IDC_PROXYCOMBO,5,251,244,30,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
     PUSHBUTTON      ">>",IDC_PROXYBUTTON,251,240,20,14
-    PUSHBUTTON      "Supprimer le dernier proxy",IDC_DELETELAST,5,256,90,14
-    DEFPUSHBUTTON   "Confirmer",1,165,258,50,14
-    PUSHBUTTON      "Annuler",2,221,258,50,14
+    PUSHBUTTON      "Supprimer le dernier proxy",IDC_DELETELAST,5,266,90,14
+    DEFPUSHBUTTON   "Confirmer",1,165,269,50,14
+    PUSHBUTTON      "Annuler",2,221,269,50,14
 END
 
 IDD_PROPERTIES DIALOGEX 0, 0, 249, 214
-STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+STYLE DS_SETFONT | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "Propriétés"
 FONT 8, "MS Shell Dlg", 0, 0, 0x1
 BEGIN
@@ -957,7 +927,7 @@ BEGIN
 END
 
 IDD_PROXY DIALOGEX 0, 0, 280, 121
-STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+STYLE DS_SETFONT | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "Agencements “Proxy”"
 FONT 8, "MS Shell Dlg", 0, 0, 0x1
 BEGIN
@@ -1003,7 +973,7 @@ BEGIN
         LEFTMARGIN, 5
         RIGHTMARGIN, 271
         TOPMARGIN, 5
-        BOTTOMMARGIN, 272
+        BOTTOMMARGIN, 282
     END
 
     IDD_PROPERTIES, DIALOG
@@ -1246,8 +1216,10 @@ END
 STRINGTABLE DISCARDABLE 
 BEGIN
     IDS_PASS_TITLE          "Mot de passe pour l'utilisateur: "
+    IDS_PASS_CHANGE_REQUEST "Le serveur demande que vous changez votre mot de passe. Nouveau mot de passe:"
+    IDS_DLL_VERSION         "Il vous faut libssh2 version 1.7.0 ou plus récent pour une taille > 2 GB par SCP."
+    IDS_NO_2GB_SUPPORT      "Le serveur ne supporte peut-être pas un transfert de fichiers >2GB par SCP! Essayer quand-même?"
 END
-
 #endif    // French (France) resources
 /////////////////////////////////////////////////////////////////////////////
 

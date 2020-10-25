@@ -100,6 +100,16 @@
 #define BG_UPLOAD      0x02            // Plugin supports uploads in background
 #define BG_ASK_USER    0x04            // Plugin requires separate connection for background transfers -> ask user first
 
+#define FS_CHK_CRC32   0x0001
+#define FS_CHK_MD5     0x0002
+#define FS_CHK_SHA1    0x0004
+#define FS_CHK_SHA256  0x0008
+#define FS_CHK_SHA512  0x0010
+#define FS_CHK_OTHER   0x0200
+
+#define FS_CHK_ERR_BUSY   -1           // Checksum calculation still active, try again
+#define FS_CHK_ERR_FAIL   -2           // Failed to get checksum
+
 
 typedef struct {
     DWORD SizeLow;
