@@ -1461,7 +1461,75 @@ int SftpConnect(pConnectSettings ConnectSettings)
         }
 
         ConnectSettings->sftpsession = NULL;
+
+        // Send user-defined command line
+        if (ConnectSettings->connectsendcommand[0]) {
+            ShowStatus("Sending user-defined command:");
+            ShowStatus(ConnectSettings->connectsendcommand);
+            strlcpy(buf, ConnectSettings->connectsendcommand, sizeof(buf)-1);
+            LIBSSH2_CHANNEL *channel;
+            channel = ConnectChannel(ConnectSettings->session);
+            if (ConnectSettings->sendcommandmode <= 1) {
+                if (SendChannelCommand(ConnectSettings->session, channel, ConnectSettings->connectsendcommand)) {
+                    while (!libssh2_channel_eof(channel)) {
+                        if (ProgressLoop(buf, 80, 90, &loop, &lasttime))
+                            break;
+                        char databuf[1024], *p, *p2;
+                        databuf[0] = 0;
+                        if (0 < libssh2_channel_read_stderr(channel, databuf, sizeof(databuf)-1)) {
+                            p = databuf;
+                            while (p[0] > 0 && p[0] <= ' ')
+                                p++;
+                            if (p[0]) {
+                                p2 = p + strlen(p) - 1;
+                                while (p2[0] <= ' ' && p2 >= p) {
+                                    p2[0] = 0;
+                                    p2--;
+                                }
+                            }
+                            if (p[0])
+                                ShowStatus(databuf);
+                        }
+                        databuf[0] = 0;
+                        if (0 < libssh2_channel_read(channel, databuf, sizeof(databuf)-1)) {
+                            p = databuf;
+                            while (p[0] > 0 && p[0] <= ' ')
+                                p++;
+                            if (p[0]) {
+                                p2 = p + strlen(p) - 1;
+                                while (p2[0] <= ' ' && p2 >= p) {
+                                    p2[0] = 0;
+                                    p2--;
+                                }
+                            }
+                            if (p[0])
+                                ShowStatus(databuf);
+                        }
+                    }
+                }
+                if (ConnectSettings->sendcommandmode == 0)
+                    DisconnectShell(channel);
+            } else {
+                int rc = -1;
+                do {
+                    rc = libssh2_channel_exec(channel, ConnectSettings->connectsendcommand);
+                    if (rc <0 ) {
+                        if (rc == -1)
+                            rc = libssh2_session_last_errno(ConnectSettings->session);
+                        if (rc != LIBSSH2_ERROR_EAGAIN)
+                            break;
+                    }
+                    if (EscapePressed())
+                        break;
+                } while (rc < 0);
+            }
+            Sleep(1000);
+        }
+
         if (!ConnectSettings->scponly) {
+            LoadStr(buf, IDS_SESSION_STARTUP);
+            strlcat(buf, " (SFTP)", sizeof(buf)-1);
+            ShowStatus(buf);
             do {
                 ConnectSettings->sftpsession = NULL;
                 if (ProgressLoop(buf, 80, 90, &loop, &lasttime))
@@ -1693,6 +1761,8 @@ BOOL LoadServerSettings(char* DisplayName, pConnectSettings ConnectResults)
 
     LoadProxySettingsFromNr(ConnectResults->proxynr, ConnectResults);
     ConnectResults->neednewchannel = false;
+    GetPrivateProfileString(DisplayName, "sendcommand", "", ConnectResults->connectsendcommand, sizeof(ConnectResults->connectsendcommand)-1, gIniFileName);
+    ConnectResults->sendcommandmode = GetPrivateProfileInt(gDisplayName, "sendcommandmode", 0, gIniFileName);
     return ConnectResults->server[0] != 0;
 }
 
@@ -4548,7 +4618,7 @@ myint __stdcall PropDlgProc(HWND hWnd, unsigned int Message, WPARAM wParam, LPAR
                     p[13] = ' ';
                     p[16] = ' ';
                     p[19] = ' ';
-                    sscanf(p, "%d %d %d %d %d %d %d %d", &tdt.wYear, &tdt.wMonth, &tdt.wDay, &tdt.wHour, &tdt.wMinute, &tdt.wSecond, &tdt.wMilliseconds, &timezone);
+                    sscanf(p, "%hd %hd %hd %hd %hd %hd %hd %d", &tdt.wYear, &tdt.wMonth, &tdt.wDay, &tdt.wHour, &tdt.wMinute, &tdt.wSecond, &tdt.wMilliseconds, &timezone);
                     SystemTimeToFileTime(&tdt, &ft);
                     tzhours = abs(timezone) / 100;
                     tzminutes = abs(timezone) - 100*tzhours;

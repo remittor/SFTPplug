@@ -25,10 +25,12 @@ typedef struct {
     char server[MAX_PATH];
     char user[MAX_PATH];
     char password[MAX_PATH];
+    char connectsendcommand[MAX_PATH];
     WCHAR lastactivepath[1024];
     char savedfingerprint[MAX_PATH];
     char pubkeyfile[MAX_PATH];
     char privkeyfile[MAX_PATH];
+    int sendcommandmode;
     
     SOCKET sock;
     LIBSSH2_SESSION *session;
