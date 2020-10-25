@@ -132,6 +132,7 @@
 #define IDS_DLL_VERSION                 258
 #define IDS_STRING258                   258
 #define IDS_NO_2GB_SUPPORT              259
+#define IDS_HELP_PASSWORD               260
 #define IDC_CONNECTTO                   1000
 #define IDC_USERNAME                    1001
 #define IDC_PASSWORD                    1002
@@ -175,6 +176,7 @@
 #define IDC_KEEP_ALIVE_SECONDS          1030
 #define IDC_PROP_OWNER                  1031
 #define IDC_PROP_GROUP                  1032
+#define IDC_PASSWORDHELP                1032
 #define IDC_PROP_PERMISSIONS            1033
 #define IDC_PROP_SIZE                   1034
 #define IDC_PROP_MODIFIED               1035

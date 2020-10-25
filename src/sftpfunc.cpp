@@ -404,14 +404,23 @@ static void kbd_callback(const char *name,  int name_len,
         pConnectSettings ConnectSettings = (pConnectSettings)*abstract;
         if (ConnectSettings && (i == 0) && ConnectSettings->password[0] && !ConnectSettings->InteractivePasswordSent) {
             ConnectSettings->InteractivePasswordSent = true;
-            responses[0].text = _strdup(ConnectSettings->password);
-            responses[0].length = (unsigned int)strlen(ConnectSettings->password);
+            char* p = strstr(ConnectSettings->password,"\",\"");
+            int len = strlen(ConnectSettings->password);
+            if (p && ConnectSettings->password[0] == '"' && ConnectSettings->password[len-1] == '"') {
+                // two passwords -> use second one!
+                ConnectSettings->password[len-1] = 0;
+                responses[0].text = _strdup(p + 3);
+                ConnectSettings->password[len-1] = '"';
+            } else
+                responses[0].text = _strdup(ConnectSettings->password);
+            responses[0].length = (unsigned int)strlen(responses[0].text);
         } else {
             char buf[1024];
             char retbuf[256];
             char title[128];
             buf[0] = 0;
             title[0] = 0;
+            ConnectSettings->InteractivePasswordSent = true;
             if (instruction && instruction_len) {
                 strlcpy(buf, instruction, min(instruction_len, sizeof(buf)-1));
                 strlcat(buf, "\n", sizeof(buf)-1);
@@ -1305,7 +1314,13 @@ int SftpConnect(pConnectSettings ConnectSettings)
                         strlcat(buf, buf1, sizeof(buf)-1);
                         ShowStatus(buf);
                         while ((auth = libssh2_agent_userauth(agent,  ConnectSettings->user,  identity)) == LIBSSH2_ERROR_EAGAIN);
-                        if (auth) {
+                        if (auth == LIBSSH2_ERROR_REQUIRE_KEYBOARD) {
+                            auth_pw = 2;
+                            break;
+                        } else if (auth == LIBSSH2_ERROR_REQUIRE_PASSWORD) {
+                            auth_pw = 1;
+                            break;
+                        } else if (auth) {
                             LoadStr(buf, IDS_AGENT_AUTHFAILED);
                             ShowStatus(buf);
                         } else {
@@ -1412,9 +1427,17 @@ int SftpConnect(pConnectSettings ConnectSettings)
                         strlcat(title, "@", sizeof(title)-1);
                         strlcat(title, ConnectSettings->server, sizeof(title)-1);
                         LoadStr(buf, IDS_KEYPASSPHRASE);
-                        if (ConnectSettings->password[0] != 0)
+                        if (ConnectSettings->password[0] != 0) {
+                            char* p = strstr(ConnectSettings->password, "\",\"");
+                            int len = strlen(ConnectSettings->password);
+                            if (p && ConnectSettings->password[0] == '"' && ConnectSettings->password[len-1] == '"') {
+                                // two passwords -> use second one!
+                                p[0] = 0;
+                                strlcpy(passphrase, ConnectSettings->password + 1, sizeof(passphrase)-1);
+                                p[0] = '"';
+                            } else
                             strlcpy(passphrase, ConnectSettings->password, sizeof(passphrase)-1);
-                        else
+                        } else
                             RequestProc(PluginNumber, RT_Password, title, buf, passphrase, sizeof(passphrase)-1);
                     }
 
@@ -1436,7 +1459,11 @@ int SftpConnect(pConnectSettings ConnectSettings)
                             break;
                         IsSocketReadable(ConnectSettings->sock);  // sleep to avoid 100% CPU!
                     }
-                    if (auth) {
+                    if (auth == LIBSSH2_ERROR_REQUIRE_KEYBOARD)
+                        auth_pw = 2;
+                    else if (auth == LIBSSH2_ERROR_REQUIRE_PASSWORD)
+                        auth_pw = 1;
+                    else if (auth) {
                         SftpLogLastError("libssh2_userauth_publickey_fromfile: ", auth);
                         ShowErrorId(IDS_ERR_AUTH_PUBKEY);
                     }
@@ -1444,7 +1471,9 @@ int SftpConnect(pConnectSettings ConnectSettings)
                         strlcpy(ConnectSettings->password, passphrase, sizeof(ConnectSettings->password)-1);
                 }
             }
-        } else {
+        } else
+            auth_pw = auth_pw & 3;
+        if ((auth_pw & 4) == 0) {
             if (auth_pw & 2) {   // keyboard-interactive
                 LoadStr(buf, IDS_AUTH_KEYBDINT_FOR);
                 strlcat(buf, ConnectSettings->user, sizeof(buf)-1);
@@ -1467,7 +1496,16 @@ int SftpConnect(pConnectSettings ConnectSettings)
                 auth = LIBSSH2_ERROR_INVAL;
             if (auth != 0 && (auth_pw & 1) != 0) {
                 char passphrase[256];
-                strlcpy(passphrase, ConnectSettings->password, sizeof(passphrase)-1);
+
+                char* p = strstr(ConnectSettings->password, "\",\"");
+                int len = strlen(ConnectSettings->password);
+                if (p && ConnectSettings->password[0] == '"' && ConnectSettings->password[len-1] == '"') {
+                    // two passwords -> use second one!
+                    ConnectSettings->password[len-1] = 0;
+                    strlcpy(passphrase, p + 3, sizeof(passphrase)-1);
+                    ConnectSettings->password[len-1] = '"';
+                } else
+                    strlcpy(passphrase, ConnectSettings->password, sizeof(passphrase)-1);
                 if (passphrase[0] == 0) {
                     char title[250];
                     strlcpy(title, "SFTP password for ", sizeof(title)-1);
@@ -1659,7 +1697,7 @@ int SftpConnect(pConnectSettings ConnectSettings)
 #endif
                 // /usr/bin/scp: ELF 32-bit LSB executable, ARM ...
                 // /usr/bin/scp: ELF 64-bit LSB shared object, x86-64 ...
-                if (strstr(reply, "ELF 64-BIT")) {
+                if (strstr(reply, "64-BIT")) {
                     ShowStatus("64-bit scp detected!");
                     ConnectSettings->scpserver64bit = 1;
                 }
@@ -1917,9 +1955,9 @@ int codepagelist[] = {-1, -2, 0, 1, 2, 1250, 1251, 1252, 1253, 1254, 1255, 1256,
 
 void EnableControlsPageant(HWND hWnd, BOOL enable)
 {
-    EnableWindow(GetDlgItem(hWnd, IDC_PASSWORD), enable);
-    EnableWindow(GetDlgItem(hWnd, IDC_EDITPASS), enable);
-    EnableWindow(GetDlgItem(hWnd, IDC_CRYPTPASS), enable);
+    //EnableWindow(GetDlgItem(hWnd, IDC_PASSWORD), enable);  <- new! We can have both pubkey+keyboard interactive logins!
+    //EnableWindow(GetDlgItem(hWnd, IDC_EDITPASS), enable);
+    //EnableWindow(GetDlgItem(hWnd, IDC_CRYPTPASS), enable);
     EnableWindow(GetDlgItem(hWnd, IDC_CERTFRAME), enable);
     EnableWindow(GetDlgItem(hWnd, IDC_STATICPUB), enable);
     EnableWindow(GetDlgItem(hWnd, IDC_STATICPEM), enable);
@@ -2280,7 +2318,7 @@ myint __stdcall ConnectDlgProc(HWND hWnd, unsigned int Message, WPARAM wParam, L
             SendDlgItemMessage(hWnd, IDC_SYSTEM, CB_SETCURSEL, max(0, min(2, gConnectResults->unixlinebreaks+1)), 0);
 
             if (strcmp(gConnectResults->password, "\001") == 0 && CryptProc) {
-                if (!gConnectResults->useagent && CryptProc(PluginNumber, CryptoNumber, FS_CRYPT_LOAD_PASSWORD_NO_UI, gDisplayName, gConnectResults->password, countof(gConnectResults->password)-1) == FS_FILE_OK) {
+                if (CryptProc(PluginNumber, CryptoNumber, FS_CRYPT_LOAD_PASSWORD_NO_UI, gDisplayName, gConnectResults->password, countof(gConnectResults->password)-1) == FS_FILE_OK) {
                     SetDlgItemText(hWnd, IDC_PASSWORD, gConnectResults->password);
                     CheckDlgButton(hWnd, IDC_CRYPTPASS, BST_CHECKED);
                 } else {
@@ -2442,10 +2480,9 @@ myint __stdcall ConnectDlgProc(HWND hWnd, unsigned int Message, WPARAM wParam, L
                 WritePrivateProfileString(gDisplayName, TEXT("proxynr"), buf, gIniFileName);
 
                 // SR: 09.07.2005
-                if (!gConnectResults->dialogforconnection)
-                {
+                if (!gConnectResults->dialogforconnection) {
                     TCHAR szEncryptedPassword[MAX_PATH];
-                    if (!gConnectResults->useagent)
+                    {
                         if (!IsWindowVisible(GetDlgItem(hWnd, IDC_EDITPASS))) {
                             if (gConnectResults->password[0] == 0) {
                                 WritePrivateProfileString(gDisplayName, "password", NULL, gIniFileName);
@@ -2458,6 +2495,7 @@ myint __stdcall ConnectDlgProc(HWND hWnd, unsigned int Message, WPARAM wParam, L
                                 WritePrivateProfileString(gDisplayName, "password", szEncryptedPassword, gIniFileName);
                             }
                         }
+                    }
                 }
             }
             gConnectResults->customport = 0;  // will be set later
@@ -2503,6 +2541,15 @@ myint __stdcall ConnectDlgProc(HWND hWnd, unsigned int Message, WPARAM wParam, L
             LoadString(hinst,  IDS_HELP_CAPTION, szCaption, countof(szCaption));
             TCHAR szBuffer[1024];
             LoadString(hinst,  IDS_HELP_CERT, szBuffer, countof(szBuffer));
+            MessageBox(hWnd, szBuffer, szCaption, MB_OK | MB_ICONINFORMATION);
+            break;
+        }
+        case IDC_PASSWORDHELP:
+        {
+            TCHAR szCaption[100];
+            LoadString(hinst, IDS_HELP_CAPTION, szCaption, countof(szCaption));
+            TCHAR szBuffer[1024];
+            LoadString(hinst, IDS_HELP_PASSWORD, szBuffer, countof(szBuffer));
             MessageBox(hWnd, szBuffer, szCaption, MB_OK | MB_ICONINFORMATION);
             break;
         }
@@ -3080,7 +3127,7 @@ BOOL SftpFindNextFileW(void* serverid, void* davdataptr, WIN32_FIND_DATAW *FindD
 
         if (ConnectSettings->scponly) {
             FindData->ftLastWriteTime = datetime;
-            if (attr & FILE_ATTRIBUTE_DIRECTORY != 0)
+            if ((attr & FILE_ATTRIBUTE_DIRECTORY) != 0)
                 FindData->dwFileAttributes |= FILE_ATTRIBUTE_DIRECTORY;
         } else if (file.flags & LIBSSH2_SFTP_ATTR_ACMODTIME) {  
             __int64 tm = 0x019DB1DE;
