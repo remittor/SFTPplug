@@ -184,8 +184,8 @@ BOOL LoadSSHLib()
         char dllname[MAX_PATH];
         dllname[0] = 0;
 
-        // first,  try in the program directory.
-        GetModuleFileName(NULL, dllname, sizeof(dllname)-10);
+        // first, try in the DLL directory (changed from previous versions)
+        GetModuleFileName(hinst, dllname, sizeof(dllname)-10);
         char* p = strrchr(dllname, '\\');
         if (p)
             p++;
@@ -234,7 +234,7 @@ BOOL LoadSSHLib()
             sshlib = (HINSTANCE)LoadLibrary(dllname);
         }
         if (!sshlib) {
-            GetModuleFileName(hinst, dllname, sizeof(dllname)-10);
+            GetModuleFileName(NULL, dllname, sizeof(dllname)-10);
             char* p = strrchr(dllname, '\\');
             if (p)
                 p++;
@@ -1236,6 +1236,7 @@ int SftpConnect(pConnectSettings ConnectSettings)
             char filebuf[1024];
             char passphrase[256];
             char pubkeyfile[MAX_PATH], privkeyfile[MAX_PATH];
+            char* pubkeyfileptr = pubkeyfile;
             strlcpy(pubkeyfile, ConnectSettings->pubkeyfile, sizeof(pubkeyfile)-1);
             ReplaceSubString(pubkeyfile, "%USER%", ConnectSettings->user, sizeof(pubkeyfile)-1);
             ReplaceEnvVars(pubkeyfile, sizeof(pubkeyfile)-1);
@@ -1255,11 +1256,14 @@ int SftpConnect(pConnectSettings ConnectSettings)
                 pubkeybad = true;
             } else {
                 DWORD dataread = 0;
-                if (ReadFile(hf, &filebuf, 10, &dataread, NULL)) {
-                    if (_strnicmp(filebuf, "ssh-", 4) != 0) {
+                if (ReadFile(hf, &filebuf, 35, &dataread, NULL)) {
+                    if (_strnicmp(filebuf, "ssh-", 4) != 0 && 
+                        _strnicmp(filebuf, "ecdsa-", 6) != 0 &&
+                        _strnicmp(filebuf, "-----BEGIN OPENSSH PRIVATE KEY-----", 35) != 0)
+                    {
                         LoadStr(buf, IDS_ERR_PUBKEY_WRONG_FORMAT);
                         ShowError(buf);
-                        auth=LIBSSH2_ERROR_FILE;
+                        auth = LIBSSH2_ERROR_FILE;
                         pubkeybad = true;
                     }
                 }
@@ -1292,6 +1296,23 @@ int SftpConnect(pConnectSettings ConnectSettings)
                             for (int i=0; i < 32; i++)
                                 if (!ismimechar(p[i]))
                                     isencrypted = true;
+                            // new format -----BEGIN OPENSSH PRIVATE KEY-----
+                            // check whether the encoded string contains bcrypt
+                            if (!isencrypted) {
+                                char* p2 = filebuf;
+                                while (p2[0] == '\r' || p2[0] == '\n')
+                                    p2++;
+                                if (strncmp(p2, "-----BEGIN OPENSSH PRIVATE KEY-----", 35) == 0) {
+                                    char outbuf[64];
+                                    int l = MimeDecode(p, min(64, strlen(p)), outbuf, sizeof(outbuf));
+                                    for (int i = 0; i < l - 6; i++) {
+                                        if (outbuf[i] == 'b' && strncmp(outbuf + i,"bcrypt", 6) == 0) {
+                                            isencrypted = true;
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                     CloseHandle(hf);
@@ -1314,10 +1335,13 @@ int SftpConnect(pConnectSettings ConnectSettings)
                     strlcat(buf, ConnectSettings->user, sizeof(buf)-1);
                     ShowStatus(buf);
 
+                    if (strcmp(pubkeyfile, privkeyfile) == 0)
+                        pubkeyfileptr = NULL;
+
                     LoadStr(buf, IDS_AUTH_PUBKEY);
                     while ((auth = libssh2_userauth_publickey_fromfile(ConnectSettings->session,
                                         ConnectSettings->user,
-                                        pubkeyfile,
+                                        pubkeyfileptr,
                                         privkeyfile,
                                         passphrase)) == LIBSSH2_ERROR_EAGAIN) {
                         if (ProgressLoop(buf, 60, 70, &loop, &lasttime))
@@ -2371,7 +2395,7 @@ myint __stdcall ConnectDlgProc(HWND hWnd, unsigned int Message, WPARAM wParam, L
                 ofn.lpstrTitle = TEXT("Select public key file");
             } else {
                 lstrcpy(szFileName, TEXT("*.pem"));
-                ofn.lpstrFilter = TEXT("Private key files (*.pub)\0*.pem\0All Files\0*.*\0");
+                ofn.lpstrFilter = TEXT("Private key files (*.pem)\0*.pem\0All Files\0*.*\0");
                 ofn.lpstrTitle = TEXT("Select private key file");
             }
             ofn.Flags = OFN_FILEMUSTEXIST | OFN_HIDEREADONLY ;
@@ -3738,6 +3762,14 @@ int SftpUploadFileW(void* serverid, WCHAR* LocalName, WCHAR* RemoteName, BOOL Re
         } else
             retval = SFTP_WRITEFAILED;
         CloseHandle(localfile);
+    }
+    if (retval == SFTP_OK) {
+        FILETIME ft;
+        if (GetFileTime(localfile, NULL, NULL, &ft)) {
+            if (SFTP_FAILED == SftpSetDateTimeW(ConnectSettings, RemoteName, &ft)) {
+                // handle error?
+            }
+        }
     }
     return retval;
 }

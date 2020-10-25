@@ -19,6 +19,7 @@ WCHAR* ReplaceSlashByBackslashW(WCHAR* thedir);
 char* FormValidUrl(char* url, int maxlen, BOOL sendurlasunicode);
 BOOL UnixTimeToLocalTime(long* mtime, LPFILETIME ft);
 void MimeEncode(char* inputstr, char* outputstr, int maxlen);
+int MimeDecode(char* inputstr, int srclen, char* outputstr, int maxlen);
 void ReplaceEnvVars(char* buf, int buflen);
 void ReplaceSubString(char* buf, const char* fromstr, const char* tostr, int maxlen);
 BOOL ParseAddress(char* serverstring, char* addr,  unsigned short* port, int defport);

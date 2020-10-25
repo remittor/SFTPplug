@@ -715,7 +715,7 @@ int WINAPI FsPutFileW(WCHAR* LocalName, WCHAR* RemoteName, int CopyFlags)
         return FS_FILE_READERROR;
     pConnectSettings ConnectSettings = (pConnectSettings)serverid;
     if (ConnectSettings)
-        ConnectSettings->lastpercent=0;
+        ConnectSettings->lastpercent = 0;
 
     switch (SftpUploadFileW(serverid, LocalName, remotedir, Resume, (CopyFlags & FS_COPYFLAGS_EXISTS_SAMECASE) == 0)) {
         case SFTP_OK:          return FS_FILE_OK;
