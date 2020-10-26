@@ -18,6 +18,7 @@
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
       <CompileAs>Default</CompileAs>
+      <ExceptionHandling>Sync</ExceptionHandling>
       <AdditionalIncludeDirectories>
       </AdditionalIncludeDirectories>
       <DisableSpecificWarnings>4244;4267;4996</DisableSpecificWarnings>
