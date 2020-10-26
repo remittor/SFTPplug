@@ -4692,7 +4692,7 @@ BOOL ReadChannelLine(LIBSSH2_CHANNEL *channel, char *line, int linelen, char* ms
 
 void SftpSetTransferModeW(WCHAR* mode)
 {
-    Global_TransferMode = (char)CharUpperW((LPWSTR)mode[0]);
+    Global_TransferMode = (size_t)CharUpperW((LPWSTR)mode[0]) & 0xFF;
     if (Global_TransferMode == 'X')
         wcslcpy(Global_TextTypes, mode + 1, countof(Global_TextTypes)-1);
 }
