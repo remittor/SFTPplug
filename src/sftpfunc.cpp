@@ -3893,11 +3893,29 @@ int SftpUploadFileW(void* serverid, WCHAR* LocalName, WCHAR* RemoteName, BOOL Re
                 else
                     filesize = filesize2;
             }
+            FILETIME ft;
+            long mtime = 0;
+            // the filemod is only set when also setting the timestamps.
+            // we must not set it when overwriting, though!
+            // when using SFTP commands, we can set the mode afterwards with the timestamp
+            if (ConnectSettings->scponly && setattr) {
+                if (GetFileTime(localfile, NULL, NULL, &ft)) {
+                    __int64 tm2 = ft.dwHighDateTime;
+                    tm2 <<= 32;
+                    tm2 |= ft.dwLowDateTime;
+                    __int64 tm = 0x019DB1DE;
+                    tm <<= 32;
+                    tm |= 0xD53E8000;
+                    tm2 -= tm;
+                    mtime = (DWORD)(tm2 / (__int64)10000000);
+                }
+            }
+
             do {
                 if (!SSH_ScpNo2GBLimit)
-                    remotefilescp = libssh2_scp_send_ex(ConnectSettings->session, thename2, ConnectSettings->filemod, (int)filesize, 0, 0);
+                    remotefilescp = libssh2_scp_send_ex(ConnectSettings->session, thename2, ConnectSettings->filemod, (int)filesize, mtime, 0);
                 else
-                    remotefilescp = libssh2_scp_send64(ConnectSettings->session, thename2, ConnectSettings->filemod, (libssh2_uint64_t)filesize, 0, 0);
+                    remotefilescp = libssh2_scp_send64(ConnectSettings->session, thename2, ConnectSettings->filemod, (libssh2_uint64_t)filesize, mtime, 0);
 
                 if (EscapePressed()) {
                     ConnectSettings->neednewchannel = true;
@@ -4047,7 +4065,7 @@ int SftpUploadFileW(void* serverid, WCHAR* LocalName, WCHAR* RemoteName, BOOL Re
                 libssh2_session_set_blocking(ConnectSettings->session, 0);
             }
 
-            if (retval == SFTP_OK) {
+            if (retval == SFTP_OK && !ConnectSettings->scponly) {
                 LIBSSH2_SFTP_ATTRIBUTES attr;
                 FILETIME ft;
                 // set modification time ONLY if target didn't exist yet!!!
@@ -4063,7 +4081,8 @@ int SftpUploadFileW(void* serverid, WCHAR* LocalName, WCHAR* RemoteName, BOOL Re
                     tm2 -= tm;
                     attr.mtime = (DWORD)(tm2 / (__int64)10000000);
                     attr.atime = attr.mtime;
-                    attr.permissions = ConnectSettings->filemod;
+                    if (setattr)
+                        attr.permissions = ConnectSettings->filemod;
                 }                       
                 while (LIBSSH2_ERROR_EAGAIN == libssh2_sftp_setstat(ConnectSettings->sftpsession, thename, &attr)) {
                     if (EscapePressed()) {
@@ -4071,6 +4090,13 @@ int SftpUploadFileW(void* serverid, WCHAR* LocalName, WCHAR* RemoteName, BOOL Re
                         break;
                     }
                     IsSocketReadable(ConnectSettings->sock);  // sleep to avoid 100% CPU!
+                }
+            } else if (retval == SFTP_OK) {
+                FILETIME ft;
+                if (GetFileTime(localfile, NULL, NULL, &ft)) {
+                    if (SFTP_FAILED == SftpSetDateTimeW(ConnectSettings, RemoteName, &ft)) {
+                        // handle error?
+                    }
                 }
             }
         } else

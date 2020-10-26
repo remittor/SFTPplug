@@ -59,7 +59,7 @@ FUNCDEF(LIBSSH2_API int ,libssh2_channel_free,(LIBSSH2_CHANNEL *channel));
 //FUNCDEF(LIBSSH2_API LIBSSH2_CHANNEL *,libssh2_scp_recv,(LIBSSH2_SESSION *session, const char *path, struct stat *sb));
 FUNCDEF(LIBSSH2_API LIBSSH2_CHANNEL *,libssh2_scp_recv2,(LIBSSH2_SESSION *session, const char *path, libssh2_struct_stat *sb));
 FUNCDEF(LIBSSH2_API LIBSSH2_CHANNEL *,libssh2_scp_send_ex,(LIBSSH2_SESSION *session, const char *path, int mode, size_t size, long mtime, long atime));
-FUNCDEF(LIBSSH2_API LIBSSH2_CHANNEL *,libssh2_scp_send64,(LIBSSH2_SESSION *session, const char *path, int mode, libssh2_uint64_t size, time_t mtime, time_t atime));
+FUNCDEF(LIBSSH2_API LIBSSH2_CHANNEL *,libssh2_scp_send64,(LIBSSH2_SESSION *session, const char *path, int mode, libssh2_uint64_t size, __int64 mtime, __int64 atime));  // Ghisler: library uses 64-bit time_t also in 32-bit!
 FUNCDEF(LIBSSH2_API int ,libssh2_base64_decode,(LIBSSH2_SESSION *session, char **dest, unsigned int *dest_len, const char *src, unsigned int src_len));
 FUNCDEF(LIBSSH2_API int ,libssh2_trace,(LIBSSH2_SESSION *session, int bitmask));
 FUNCDEF(LIBSSH2_API void,libssh2_keepalive_config,(LIBSSH2_SESSION *session, int want_reply, unsigned interval));
