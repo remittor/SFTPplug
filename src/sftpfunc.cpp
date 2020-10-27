@@ -3078,7 +3078,6 @@ BOOL SftpFindNextFileW(void* serverid, void* davdataptr, WIN32_FIND_DATAW *FindD
             return SFTP_FAILED;
         rc = 0;
         while (ReadChannelLine(channel, completeline, sizeof(completeline)-1, scpd->msgbuf, sizeof(scpd->msgbuf)-1, scpd->errbuf, sizeof(scpd->errbuf)-1)) {
-            BOOL longdatetime = false;
             StripEscapeSequences(completeline);
             if (ConnectSettings->utf8names) {
                 UTF8* srcstart = (unsigned char*)completeline;
@@ -3087,7 +3086,7 @@ BOOL SftpFindNextFileW(void* serverid, void* davdataptr, WIN32_FIND_DATAW *FindD
             } else
                 awlcopyCP(ConnectSettings->codepage, completelinew, completeline, countof(completelinew)-1);
 
-            if (ReadDirLineUNIX(completelinew, namew, countof(namew)-1, (__int64*)&file.filesize, &datetime, &attr, &file.permissions, longdatetime)) {
+            if (ReadDirLineUNIX(completelinew, namew, countof(namew)-1, (__int64*)&file.filesize, &datetime, &attr, &file.permissions, 0)) {
                 file.flags = LIBSSH2_SFTP_ATTR_SIZE | LIBSSH2_SFTP_ATTR_PERMISSIONS;
                 rc = 1;
                 break;

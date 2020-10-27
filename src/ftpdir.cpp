@@ -2,96 +2,132 @@
 #include "utils.h"
 #include "ftpdir.h"
 
-WCHAR* month[37] = { L"",
+LPCWSTR month[37] = { L"",
     L"JAN", L"FEB", L"MAR", L"APR", L"MAY", L"JUN", L"JUL", L"AUG", L"SEP", L"OCT", L"NOV", L"DEC", 
     L"",    L"",    L"MÄR", L"",    L"MAI", L"",    L"",    L"",    L"",    L"OKT", L"",    L"DEZ", 
     L"",    L"FEV", L"MRZ", L"AVR", L"",    L"JUI", L"",    L"",    L"",    L"",    L"",    L""
 };
 
-BOOL LineContainsonlySlashes(WCHAR* lpStr)
+__forceinline
+static bool LineContainsonlySlashes(LPCWSTR lpStr)
 {
-    while (lpStr[0] == ' ' || lpStr[0] == '-') lpStr++;
+    while (lpStr[0] == L' ' || lpStr[0] == L'-') lpStr++;
     return lpStr[0] == 0;
 }
 
-WCHAR upcase(WCHAR ch)
+__forceinline
+static WCHAR upcase(WCHAR ch)
 {
-    WCHAR buf[4];
-    buf[0] = ch;
-    buf[1] = 0;
-    buf[2] = 0;
-    buf[3] = 0;
-    CharUpperW(buf);
-    return (WCHAR)buf[0];
+    return (size_t)CharUpperW((LPWSTR)ch) & 0xFFFF;
 }
 
-BOOL isadigit(WCHAR ch)
+__forceinline
+static bool isadigit(WCHAR ch)
 {
-    return (ch >= '0' && ch <= '9');
+    return (ch >= L'0' && ch <= L'9');
 }
 
-BOOL DecodeNumber(WCHAR** s, int* number)
+__forceinline
+static size_t _cutDigitsW(LPCWSTR instr, LPWSTR outstr, size_t outstrcap)
 {
-    WCHAR* s1;
-    WCHAR ch;
-    s1 = *s;
-    while (isadigit(s1[0])) s1++;
-    if (s1 != *s && !(upcase(s1[0]) >= 'A' && upcase(s1[0]) <= 'Z')) {
-        ch = s1[0];
-        s1[0] = 0;
-        if (*s[0]) {
-            *number = _wtoi(*s);
-        } else {
-            s1[0] = ch;
+    outstr[0] = 0;
+    if (instr[0] == 0)
+        return 0;
+    size_t len = 0;
+    while (isadigit(instr[len]) && len < outstrcap - 1) {
+        outstr[len] = instr[len];
+        len++;
+    }
+    if (len == 0)
+        return 0;
+    outstr[len] = 0;
+    return len;
+}
+
+static int DecodeNumber64W(LPCWSTR s, INT64 * number)
+{
+    WCHAR buf[32];
+    size_t len = _cutDigitsW(s, buf, sizeof(buf));
+    if (len == 0)
+        return 0;
+    if (!StrToInt64ExW(buf, STIF_DEFAULT, number))
+        return -1;
+    return len;
+}
+
+static int DecodeNumber32W(LPCWSTR s, int * number)
+{
+    WCHAR buf[12];
+    size_t len = _cutDigitsW(s, buf, sizeof(buf));
+    if (len == 0)
+        return 0;
+    if (len > 10)
+        return 0;   /* 64-bit not supported!!! */
+    buf[len] = 0;
+    *number = _wtoi(buf);  /* FIXME: replace to StrToInt64ExW for check errors */
+    return len;
+}
+
+static bool DecodeNumber(LPWSTR * s, int * number)
+{
+    size_t len = DecodeNumber32W(*s, number);
+    if (len <= 0)
+        return false;
+    const WCHAR ch = *s[len];
+    if (ch && upcase(ch) >= L'A' && upcase(ch) <= L'Z')  /* FIXME: upcase not needed */
+        return false;
+    *s += len + 1;
+    return true;
+}
+
+__forceinline
+static int get2digits(LPCWSTR str)
+{
+    union {
+        WCHAR buf[4];
+        UINT64 ui64;
+    } a;
+    a.ui64 = *(PUINT32)str;
+    return _wtoi(a.buf);
+}
+
+__forceinline
+static int get4digits(LPCWSTR str)
+{
+    union {
+        WCHAR buf[8];
+        struct {
+            UINT64 ui64;
+            SIZE_T zero;
+        } s;
+    } a;
+    a.s.ui64 = *(PUINT64)str;
+    a.s.zero = 0;
+    return _wtoi(a.buf);
+}
+
+static const WCHAR szTrim[] = L" \r\n\t";
+
+static bool check(LPCWSTR s1, PDWORD UnixAttr) // Check if s1=Permissions!
+{
+    static const char s2[] = "RWXRWXRWX";
+    *UnixAttr = 0;
+    for (size_t i = 0; i <= 8; i++) {
+        if (s1[i] == '-')
+            continue;
+        const WCHAR s1uc = upcase(s1[i]);
+        if (s1uc == s2[i]) {
+            *UnixAttr |= (1 << (8 - i));
+            continue;
+        }
+        if (s2[i] == 'X' && !wcschr(L"LST", s1uc)) {
+            *UnixAttr = 0;
             return false;
         }
-        s1[0] = ch;
-        *s = s1 + 1;
-        return true;
+        if (s1[i] == 's' || s1[i] == 't')
+            *UnixAttr |= (1 << (8 - i));
     }
-    return false;
-}
-
-int get2digits(WCHAR* s)
-{
-    WCHAR buf[4];
-    wcslcpy2(buf, s, 2);
-    return _wtoi(buf);
-}
-
-int get4digits(WCHAR* s)
-{
-    WCHAR buf[8];
-    wcslcpy2(buf, s, 4);
-    return _wtoi(buf);
-}
-
-#define s2 "RWXRWXRWX"
-#define szTrim L" \r\n\t"
-
-BOOL check(WCHAR* s1, DWORD* UnixAttr) //Check if s1=Permissions!
-{
-    int i;
-    BOOL found;
-
-    found = true;
-    *UnixAttr = 0;
-    for (i = 0; i <= 8; i++) {
-        if (s1[i] != '-') {
-            if (upcase(s1[i]) == s2[i])
-                *UnixAttr |= (1 << (8 - i));
-            else {
-                if ((s2[i] == 'X') == (wcschr(L"LST", upcase(s1[i])) == NULL)) {
-                    *UnixAttr = 0;
-                    found = false;
-                    break;
-                } else
-                    if (s1[i] == 's' || s1[i] == 't')
-                        *UnixAttr |= (1 << (8 - i));
-            }
-        }
-    }
-    return found;
+    return true;
 }
 
 /*USR Site:
@@ -100,37 +136,34 @@ BOOL check(WCHAR* s1, DWORD* UnixAttr) //Check if s1=Permissions!
 d[R----F-]  1 supervis      512 Mar 17 09:45 dl24
 d[R----F-]  1 supervis      512 Mar 17 09:45 dl17
 */
-BOOL NovellUnix(WCHAR* s1)
+static bool NovellUnix(LPCWSTR s1)
 {
-    int i;
-    WCHAR* p;
-    while (s1[0] == ' ') s1++;
-    BOOL result = (s1[0] == '[');
-    if (result) {
-        p = wcschr(s1, ']');
-        if (p == NULL || p - s1 < 6)
-            result = false;
-        else {
-            for (i = 1; i <= p - s1; i++)
-                if (s1[i] == ' ')
-                    result = false;
-        }
+    while (*s1 == ' ') s1++;
+    if (*s1 != '[')
+        return false;
+    LPCWSTR p = wcschr(s1, ']');
+    if (!p || p - s1 < 6)
+        return false;
+    for (s1++; s1 < p; s1++) {
+        if (*s1 == ' ')
+            return false;
     }
-    return result;
+    return true;
 }
 
-WCHAR* FindUnixPermissions(WCHAR* lpStr, DWORD* UnixAttr)
+static LPCWSTR FindUnixPermissions(LPCWSTR lpStr, PDWORD UnixAttr)
 {
-    int i, imax;
-    WCHAR ch;
-
     if (LineContainsonlySlashes(lpStr))
         return NULL;
     *UnixAttr = 0;
-    imax = wcslen(lpStr) - 10;
-    if (imax > 10) imax = 10;       //Don't confuse file name with permissions!
-    for (i = 0; i <= imax; i++) {
-        ch = upcase(lpStr[i]);
+    size_t imax = wcslen(lpStr);
+    if (imax < 10)
+        return NULL;
+    imax -= 10;
+    if (imax > 10)
+        imax = 10;       // Don't confuse file name with permissions!
+    for (size_t i = 0; i <= imax; i++) {
+        const WCHAR ch = upcase(lpStr[i]);
         if (wcschr(L"-DLFBCP|", ch)) {
             if (check(lpStr + i + 1, UnixAttr) || NovellUnix(lpStr + i + 1)) {
                 if (ch == 'L')
@@ -142,411 +175,401 @@ WCHAR* FindUnixPermissions(WCHAR* lpStr, DWORD* UnixAttr)
     return NULL;
 }
 
-WCHAR* FindName(WCHAR* szLine)
+/* strip trailing garbage from the line if there is any. */
+__forceinline
+static size_t StripTrailingGarbage(LPWSTR szLine)
 {
-    int nIndex;
-    WCHAR *pStr, *p;
-
-    nIndex = wcslen(szLine);
-
-    /* strip trailing garbage from the line if there is any. */
+    size_t nIndex = wcslen(szLine);
     while (nIndex > 2 && wcschr(szTrim, szLine[nIndex-1])) {
         szLine[nIndex] = 0;
         nIndex--;
     }
+    return nIndex;
+}
+
+static LPWSTR FindName(LPWSTR szLine)
+{
+    size_t nIndex = StripTrailingGarbage(szLine);
 
     /* now the name SHOULD be the last thing on the line */
-    pStr = wcsrchr(szLine, ' ');
+    LPWSTR pStr = wcsrchr(szLine, ' ');
+    pStr = (pStr == NULL) ? szLine : pStr + 1;
 
-    if (pStr)
-        pStr++;
-    else
-        pStr = szLine;
     /*Suche nach -> */
     if (pStr > szLine + 2) {
-        p = pStr; p--;
-        while (p[0] == ' ') 
+        LPWSTR p = pStr;
+        p--;
+        while (p[0] == ' ') p--;
+        if (p != szLine)
             p--;
-        if (p != szLine) p--;
-        if (p[0] == '-' && p[1] == '>' && p != szLine) { /*Verweis!*/
+        if (p[0] == '-' && p[1] == '>' && p != szLine) {  /* Verweis! */
             p--;
             while (p[0] == ' ') p--;
             p[1] = 0;
             pStr = wcsrchr(szLine, ' ');
-            if (pStr) pStr++;
-            else pStr = szLine;
+            pStr = (pStr == NULL) ? szLine : pStr + 1;
         }
     }
     return pStr;
 }
 
-/*Search with Date instead of last string*/
-/*name may contain spaces on MAC ftpd!*/
-WCHAR* FindNameUnix(WCHAR* szLine, int* link, BOOL longdatetype)
+/* Search with Date instead of last string */
+/* name may contain spaces on MAC ftpd! */
+static LPWSTR FindNameUnix(LPWSTR szLine, int * link, int flags)
 {
-    int nIndex, i, j, incr;
-    WCHAR *p, *p1, *p2, *minmonthpos, *monthpos;
     WCHAR linebuf[256];
     int num;
-    WCHAR ch;
-    BOOL ok, daybeforemonth, found;
-    WCHAR* result;
+    bool longdatetype = (flags & FLAG_HAVE_LONGDATETYPE) ? true : false;
     
-    *link = 0;        /*No link*/
-    nIndex = wcslen(szLine);
-    p = szLine;
-    /* strip trailing garbage from the line if there is any. */
-    while (nIndex > 2 && wcschr(szTrim, szLine[nIndex-1])) {
-        szLine[nIndex] = 0;
-        nIndex--;
-    }
-
-    wcslcpy2(linebuf, szLine, countof(linebuf)-1);
+    *link = 0;        /* No link */
+    StripTrailingGarbage(szLine);
+    wcslcpy2(linebuf, szLine, _countof(linebuf)-1);
     CharUpperBuffW(linebuf, wcslen(linebuf));
-    p = linebuf;
+
     /* now look for the DATE! */
 
-    minmonthpos = NULL;        /*Warning: file name may be a month name!*/
-    for (i = 1; i <= 36; i++) {
-        if (month[i][0] != 0) { /*Englisch und deutsch!*/
-            p = linebuf;
-            found = false;
-            do {
-                monthpos = wcsstr(p, month[i]);
-                if (monthpos != NULL && monthpos != p) {
-                    found = true; incr = 3;
-                    if (wcschr(L" \t-, ", monthpos[3]) == NULL) {
-                        if (wcschr(L" \t-, /, ", monthpos[4]) != NULL) {
-                            found = true;
-                            incr = 4;
-                        } else found = false;
-                    }
-                    if (found) {
-                        monthpos -= 2;
-                        if (wcschr(L" \t-, /", monthpos[1]) == NULL) found = false;
-                        daybeforemonth = monthpos[0] == '.';
-                        monthpos += 2;
-                        if (found) {
-                            monthpos += incr;
-                            for (j = 1; j <= 3; j++)       /*Max 3 Leerzeichen!*/
-                                if (wcschr(L" \t-, /", monthpos[0]) != NULL) monthpos++;
-                            if (isadigit(monthpos[0])) {
-                                if (!daybeforemonth) {
-                                    if (DecodeNumber(&monthpos, &num)) { /*Tag überspringen*/
-                                        while (monthpos[0]==' ') monthpos++;
-                                    } else found = false;
-                                }
-                                if (found && minmonthpos == NULL || monthpos < minmonthpos)
-                                    minmonthpos = monthpos;
-                            } else
-                                found = false;
-                        }
+    LPWSTR minmonthpos = NULL;        /* Warning: file name may be a month name! */
+
+    for (size_t i = 1; i <= 36; i++) {
+        if (month[i][0] == 0)
+            continue;
+        /* Englisch und deutsch! */
+        LPWSTR p = linebuf;
+        while (1) {
+            LPWSTR monthpos = wcsstr(p, month[i]);
+            if (monthpos == NULL)
+                break;
+            if (monthpos != p) {
+                size_t incr = 3;
+                if (wcschr(L" \t-, ", monthpos[3]) == NULL) {
+                    incr = 0;
+                    if (wcschr(L" \t-, /, ", monthpos[4]) != NULL) {
+                        incr = 4;
                     }
                 }
-                if (monthpos != NULL)
-                    p = monthpos + 1;
-            } while (!found && monthpos != NULL);
+                if (incr == 0)
+                    break;
+                monthpos -= 2;
+                if (wcschr(L" \t-, /", monthpos[1]) == NULL)
+                    break;
+                bool daybeforemonth = (monthpos[0] == '.');
+                monthpos += 2;
+                monthpos += incr;
+                for (size_t j = 1; j <= 3; j++) {      /* Max 3 Leerzeichen! */
+                    if (wcschr(L" \t-, /", monthpos[0]) != NULL)
+                        monthpos++;
+                }
+                if (!isadigit(monthpos[0]))
+                    break;
+                if (!daybeforemonth) {
+                    if (!DecodeNumber(&monthpos, &num))  /* Tag überspringen */
+                        break;
+                    while (monthpos[0]==' ') monthpos++;
+                }
+                if (minmonthpos == NULL || monthpos < minmonthpos)
+                    minmonthpos = monthpos;
+            }
+            p = monthpos + 1;
         }
     }
-    /*Minmonthpos zeigt nun auf Jahr bzw. Zeit*/
+    /* Minmonthpos zeigt nun auf Jahr bzw. Zeit */
     if (minmonthpos != NULL) {
-        p = szLine + (minmonthpos - linebuf); /*Auf szLine zeigen!!!*/
-        if (DecodeNumber(&p, &num)) {    /*Stunde bzw. Jahr überspringen*/
-            p--;
-            ch = p[0];
-            p++;
-            if (ch == ':' || (ch == '.' && isadigit(p[0])))
-                {
-                    ok = DecodeNumber(&p, &num); /*Zeit*/
-                    if (longdatetype && ok)
-                        p += 8;
-                } else {                                     /*Jahr*/
-                    ok = true;                               /*Novell: Zeit nach Jahr,  oft mit am/pm!*/
-                    p2 = p;
-                    while (p[0] == ' ') p++;
-                    if (wcslen(p) > 5 && DecodeNumber(&p, &num)) { /*Stunde überspringen*/
-                        p--;                     /*Achtung: nicht Namen als Zahl erkennen!*/
-                        ch = p[0];
-                        p++;
-                        if (num <= 24 && num >= 0 && (ch == ':' || (ch == '.' && isadigit(p[0])))
-                            && DecodeNumber(&p, &num)) { /*Zeit*/
-                            p--;                     /*Achtung: nicht Namen als Zahl erkennen!*/
-                            ch = p[0];
-                            p++;
-                            if (!((ch == ' ' || ch == 9) && (num < 60) && (num >= 0)))
-                                p = p2;
-                            else
-                                /*Look for am/pm*/
-                                if (p[1] == 'm' && p[2] == ' ' && (p[0] == 'a' || p[0] == 'p'))
-                                    p += 2;
-                        } else p = p2;
-                    } else p = p2;
+        LPWSTR p = szLine + (minmonthpos - linebuf); /* Auf szLine zeigen!!! */
+        if (!DecodeNumber(&p, &num))    /* Stunde bzw. Jahr überspringen */
+            goto fin;
+
+        LPWSTR px = p;
+        const WCHAR ch = p[-1];
+        if (ch == ':' || (ch == '.' && isadigit(p[0]))) {
+            if (!DecodeNumber(&p, &num))  /* Zeit */
+                goto fin;
+
+            px = longdatetype ? p + 8 : p;
+        } else {                            /* Jahr */
+            px = p;                         /* Novell: Zeit nach Jahr,  oft mit am/pm! */
+            while (p[0] == ' ') p++;
+            if (wcslen(p) <= 5)
+                goto next;
+
+            if (!DecodeNumber(&p, &num))    /* Stunde überspringen */
+                goto next;
+
+            const WCHAR ch = p[-1];                    /* Achtung: nicht Namen als Zahl erkennen! */
+            if (num <= 24 && num >= 0 && (ch == ':' || (ch == '.' && isadigit(p[0])))) {  /* Zeit */
+                if (!DecodeNumber(&p, &num))
+                    goto next;
+
+                const WCHAR ch = p[-1];                /* Achtung: nicht Namen als Zahl erkennen! */
+                if ((ch == ' ' || ch == 9) && (num < 60) && (num >= 0)) {
+                    /* Look for am/pm */
+                    if (p[1] == 'm' && p[2] == ' ' && (p[0] == 'a' || p[0] == 'p'))
+                        p += 2;
+                    px = p;
                 }
-            if (ok) {
-                while (p[0]==' ') p++;
-                result = p;
-                p = wcsstr(p, L" ->");
-                if (p != NULL) {
-                    p2 = wcsrchr(p, '/');
-                    if (p2 == NULL) p2 = p;
-                    p1 = wcschr(p2, '.');
-                    if (p1 != NULL && p1[1] == '.')
-                        p1 = wcschr(p1 + 2, '.'); /*check for ../name*/
-                    if (p1)
-                        *link = 1;        /*probably a file*/
-                    else
-                        *link = 2;     /*probably a dir*/
-                    p[0] = 0; /*Link!*/
-                }
-                return result;
             }
         }
+next:
+        p = px;
+        while (p[0] == ' ') p++;
+        px = p;
+        p = wcsstr(p, L" ->");
+        if (p != NULL) {
+            LPWSTR p2 = wcsrchr(p, '/');
+            if (p2 == NULL)
+                p2 = p;
+            LPWSTR p1 = wcschr(p2, '.');
+            if (p1 != NULL && p1[1] == '.')
+                p1 = wcschr(p1 + 2, '.');  /* check for ../name */
+            if (p1)
+                *link = 1;        /* probably a file */
+            else
+                *link = 2;        /* probably a dir */
+            p[0] = 0;  /* Link !*/
+        }
+        return px;
     }
-    return FindName(szLine); /*Do it the 'normal' way*/
+fin:
+    return FindName(szLine);  /* Do it the 'normal' way */
 }
 
-__int64 GetSizeFromFront(WCHAR* lpstr)
+static INT64 GetSizeFromFront(LPCWSTR lpstr)
 {
-    WCHAR *pstr, *lpsize;
-    __int64 result = -1;
-    pstr = lpstr;
-    while (pstr[0] != ' ' && pstr[0] != 0) pstr++;      // Permissions
-    while (pstr[0] == ' ') pstr++;                                    //Abstand
-    if (isadigit(pstr[0])) {
-        while (pstr[0] != ' ' && pstr[0] != 0) pstr++;// Zahl
-        while (pstr[0] == ' ') pstr++;                            //Abstand
+    LPCWSTR pstr = lpstr;
+    while (*pstr && *pstr != ' ') pstr++;                // Permissions
+    while (*pstr == ' ') pstr++;                         // Abstand
+    if (isadigit(*pstr)) {
+        while (*pstr && *pstr != ' ') pstr++;            // Zahl
+        while (*pstr == ' ') pstr++;                     // Abstand
     }
-    while (pstr[0] != ' ' && pstr[0] != 0) pstr++;      // Owner
-    while (pstr[0] == ' ') pstr++;                                    // Abstand
-    while (pstr[0] != ' ' && pstr[0] != 0) pstr++;      // Group
-    while (pstr[0] == ' ') pstr++;                                    // Abstand
-    if (isadigit(pstr[0])) {                     // Groesse gefunden!
-        lpsize = pstr;
-        while (isadigit(pstr[0])) pstr++;
-        pstr[0] = 0;
-        result = _wtoi64(lpsize);
+    while (*pstr && *pstr != ' ') pstr++;                // Owner
+    while (*pstr == ' ') *pstr++;                        // Abstand
+    while (*pstr && *pstr != ' ') pstr++;                // Group
+    while (*pstr == ' ') *pstr++;                        // Abstand
+    if (isadigit(*pstr)) {                               // Groesse gefunden!
+        INT64 result;
+        int len = DecodeNumber64W(pstr, &result);
+        if (len > 0)
+            return result;
     }
-    return result;
+    return -1;
 }
 
-void ReadDateTimeSizeUnix(WCHAR* lpS, FILETIME* datetime, __int64* sizefile)
+static void ReadDateTimeSizeUnix(LPWSTR lpS, LPFILETIME datetime, PINT64 sizefile)
 {
     WCHAR buf[512];
-    WCHAR *lp, *lp1, *lp2, *lpsize, *monthpos, *lpstr, *lpyear;
-    SYSTEMTIME t;
-    int i, j, code, incr;
+    SYSTEMTIME t = {0};
     int num;
-    BOOL found, daybeforemonth, hastime, longdatetype;
-    WCHAR ch;
 
-    memset(&t, 0, sizeof(t));
-    hastime = true;
-    wcslcpy2(buf, lpS, countof(buf)-1);
-    lpstr = buf;
-    datetime->dwHighDateTime = -1;
-    datetime->dwLowDateTime = -1;
+    SetInt64ToFileTime(datetime, -1);
     *sizefile = -1;
-    CharUpperBuffW(lpstr, wcslen(lpstr));
-    t.wMonth = 0;
-    monthpos = NULL;
-    for (i = 1; i <= 36; i++) {
-        if (month[i][0]) {
-            monthpos = wcsstr(lpstr, month[i]);
-            if (monthpos) {
-                do {
-                    found = true;
-                    incr = 3;
-                    if (monthpos != lpstr) {
-                        if (wcschr(L" \t-, /", monthpos[3]) == NULL) {
-                            found = false;
-                            /*Deutsch kann auch sein 'Juni' 'März, ' etc.*/
-                            /*-r-sr-xr-x     1 lp                bin                    16384 27. Juni 1997 enable
-                            lr-xr-xr-t   1 root          sys                         20 16. März,  15:20 endif -> /opt/ansic/bin/endif*/
-                            if (wcschr(L" \t-, /", monthpos[4]) != NULL) {
-                                found = true;
-                                incr = 4;
-                            }
-                        }
-                        if (found) {
-                            monthpos--;
-                            if (wcschr(L" \t-, /", monthpos[0]) == NULL)
-                                found = false;
-                            monthpos++;
-                        }
-                    }
-                    if (found) {
-                        lp1 = monthpos;
-                        lp1 += incr;
-                        for (j = 1; j <= 3; j++)       /*Max 3 Leerzeichen!*/
-                            if (wcschr(L" \t-, ./", lp1[0]) != NULL) lp1++;
 
-                        if (!isadigit(lp1[0])) found = false;
+    wcslcpy2(buf, lpS, _countof(buf)-1);
+    CharUpperBuffW(buf, wcslen(buf));
+    LPWSTR lpstr = buf;
+
+    t.wMonth = 0;
+    LPWSTR monthpos = NULL;
+
+    for (size_t i = 1; i <= 36; i++) {
+        if (month[i][0] == 0)
+            continue;
+        size_t incr = 0;
+        LPWSTR p = lpstr; 
+        while (1) {
+            monthpos = wcsstr(p, month[i]);
+            if (monthpos == NULL)
+                break;   /* FIXME: may be `incr` set to 0 ??? */
+            incr = 3;
+            if (monthpos != lpstr) {  /* FIXME: may be (monthpos == p) ??? */
+                if (wcschr(L" \t-, /", monthpos[3]) == NULL) {
+                    incr = 0;
+                    /* Deutsch kann auch sein 'Juni' 'März,' etc. */
+                    /* -r-sr-xr-x     1 lp            bin                    16384 27. Juni 1997 enable
+                       lr-xr-xr-t     1 root          sys                    20 16. März,  15:20 endif -> /opt/ansic/bin/endif*/
+                    if (wcschr(L" \t-, /", monthpos[4]) != NULL) {
+                        incr = 4;
                     }
-                    if (!found)
-                        monthpos = wcsstr(monthpos + 1, month[i]);
-                } while (!found && monthpos != NULL);
-                if (found) {
-                    t.wMonth = i;
-                    while (t.wMonth > 12)
-                        t.wMonth -= 12;
+                }
+                if (incr && wcschr(L" \t-, /", monthpos[-1]) == NULL) {
+                    incr = 0;
                     break;
                 }
             }
+            if (!incr)
+                break;
+            LPWSTR lp1 = monthpos + incr;
+            for (size_t j = 1; j <= 3; j++) {      /* Max 3 Leerzeichen! */
+                if (wcschr(L" \t-, ./", lp1[0]) != NULL) lp1++;
+            }
+            if (!isadigit(lp1[0])) {
+                incr = 0;
+                break;
+            }
+            p = monthpos + 1;
+        } /* while */
+
+        if (incr) {
+            t.wMonth = i;
+            while (t.wMonth > 12)
+                t.wMonth -= 12;
+            break;
         }
     }
-    if (monthpos) {
-        monthpos--;
-        monthpos[0] = 0;
-        lpsize = monthpos;
-        daybeforemonth = false;
-        if (lpsize > buf) {
+
+    if (monthpos == NULL) {
+        /* Month in other language */
+        *sizefile = GetSizeFromFront(lpstr);
+        return;
+    }
+
+    monthpos[-1] = 0;
+    LPWSTR lpsize = monthpos - 1;
+    bool daybeforemonth = false;
+    if (lpsize <= buf) {
+        *sizefile = GetSizeFromFront(lpstr);
+    } else {
+        lpsize--;
+        if (lpsize[0] == '.') { /* Tag VOR Monat!!! */
+            daybeforemonth = true;
+            lpsize[0] = 0;
             lpsize--;
-            if (lpsize[0] == '.') { /*Tag VOR Monat!!!*/
-                daybeforemonth = true;
-                lpsize[0] = 0;
+            while (lpsize > lpstr && isadigit(lpsize[0]))
                 lpsize--;
-                while (lpsize > lpstr && isadigit(lpsize[0]))
-                    lpsize--;
-                if (lpsize > lpstr)
-                    lpsize++;
-                t.wDay = _wtoi(lpsize);
-                if (t.wDay>31) t.wDay = 0;
-                if (lpsize > lpstr + 1) lpsize -= 2;
-                lpsize[1] = 0;
-            }
-            while (lpsize > lpstr && lpsize[0] == ' ') lpsize--;
+            if (lpsize > lpstr)
+                lpsize++;
+            t.wDay = _wtoi(lpsize);
+            if (t.wDay > 31)
+                t.wDay = 0;
+            if (lpsize > lpstr + 1)
+                lpsize -= 2;
             lpsize[1] = 0;
-            while (lpsize > lpstr && isadigit(lpsize[0])) lpsize--;
-            if (!isadigit(lpsize[0])) lpsize++;
-            *sizefile = _wtoi64(lpsize);
-            code = 0;
-        } else
-            code = -1;
-        if (code)
-            *sizefile = GetSizeFromFront(lpstr);
+        }
+        while (lpsize > lpstr && lpsize[0] == ' ') lpsize--;
+        lpsize[1] = 0;
+        while (lpsize > lpstr && isadigit(lpsize[0])) lpsize--;
+        if (!isadigit(lpsize[0])) lpsize++;
+        *sizefile = _wtoi64(lpsize);   /* FIXME: replace to StrToInt64ExW for check errors */
+    }
 
-        monthpos++;
-        lp = wcschr(monthpos, ' ');
-        if (lp) {
-            while (lp[0] == ' ') lp++;
-            if (daybeforemonth) {
-                lp1 = lp;
-            } else {
-                lp1 = lp;
-                while (isadigit(lp1[0])) lp1++;
+    LPWSTR lp = wcschr(monthpos, ' ');
+    if (!lp)
+        return;
 
-                while (wcschr(L" \t-, ./", lp1[0]) != NULL) { /*lp1 zeigt nun auf Zeit bzw. Jahr*/
-                    lp1[0] = 0;
-                    lp1++;
-                }
-                t.wDay = _wtoi(lp);
-                if (t.wDay > 31) { /*Zeit oder Jahr gefunden! -> Tag vor Monat*/
-                    if (*sizefile >= 1 && *sizefile <= 31) {
-                        t.wDay = (int)*sizefile;
-                        lpsize--;
-                        while (lpsize > lpstr && lpsize[0] == ' ') lpsize--;
-                        lpsize[1] = 0;
-                        while (lpsize > lpstr && isadigit(lpsize[0])) lpsize--;
-                        *sizefile = _wtoi64(lpsize);
-                        if (!isadigit(lpsize[0]))
-                            *sizefile = GetSizeFromFront(lpstr);
-                        lp1 = lp;
-                        wcscat(lp, L" ");
-                    } else
-                        t.wDay = 0;
-                }
+    while (lp[0] == ' ') lp++;
+    LPWSTR lp1 = lp;
+    if (!daybeforemonth) {
+        while (isadigit(lp1[0])) lp1++;
+
+        while (wcschr(L" \t-, ./", lp1[0]) != NULL) { /* lp1 zeigt nun auf Zeit bzw. Jahr */
+            *lp1++ = 0;
+        }
+        t.wDay = _wtoi(lp);
+        if (t.wDay > 31) { /* Zeit oder Jahr gefunden! -> Tag vor Monat */
+            if (*sizefile >= 1 && *sizefile <= 31) {
+                t.wDay = (int)*sizefile;
+                lpsize--;
+                while (lpsize > lpstr && lpsize[0] == ' ') lpsize--;
+                lpsize[1] = 0;
+                while (lpsize > lpstr && isadigit(lpsize[0])) lpsize--;
+                *sizefile = _wtoi64(lpsize);
+                if (!isadigit(lpsize[0]))
+                    *sizefile = GetSizeFromFront(lpstr);
+                lp1 = lp;
+                wcscat(lp, L" ");
+            } else
+                t.wDay = 0;
+        }
+    }
+    /* Jahr oder Zeit suchen */
+    t.wSecond = 0;
+    if (t.wDay > 0 && lp1[0]) {
+        lp = wcschr(lp1, ' ');
+        if (!lp)
+            return;
+
+        bool hastime = false;
+        lp[0] = 0;
+        LPWSTR lpyear = lp + 1;
+        LPWSTR lp2 = lp;
+        lp = wcschr(lp1, ':');
+        if (lp) {        /* Zeit */
+            lp = wcstok(lp1, L":");
+            t.wHour = _wtoi(lp);
+            bool longdatetype = lp[5] == ':';
+            lp = wcstok(NULL, L":");
+            t.wMinute = _wtoi(lp);
+            if (longdatetype) {
+                lp = wcstok(NULL, L":");
+                t.wSecond = _wtoi(lp);
+                lpyear[4] = 0;
+                t.wYear = _wtoi(lpyear);
+            } else
+                t.wYear = 0;
+            if (t.wYear == 0) {
+                SYSTEMTIME st;
+                GetSystemTime(&st); /* Default to this year,  or the year before! */
+                /*1 year before: problematisch,  wenn Server in anderer Zeitzone!
+                    -> mindestens 2 Tage Unterschied*/
+                t.wYear = st.wYear;
+                if (t.wMonth > st.wMonth + 1 ||
+                   (t.wMonth > st.wMonth && t.wDay > 2) ||
+                   (t.wMonth == st.wMonth && t.wDay > st.wDay + 2))
+                    t.wYear--;
             }
-            /*Jahr oder Zeit suchen*/
-            t.wSecond = 0;
-            if (t.wDay > 0 && lp1[0]) {
-                lp = wcschr(lp1, ' ');
-                if (lp) {
-                    lp[0] = 0;
-                    lpyear = lp + 1;
-                    lp2 = lp;
-                    lp = wcschr(lp1, ':');
-                    if (lp) {        /*Zeit*/
-                        lp = wcstok(lp1, L":");
-                        t.wHour = _wtoi(lp);
-                        longdatetype = lp[5] == ':';
-                        lp = wcstok(NULL, L":");
-                        t.wMinute = _wtoi(lp);
-                        if (longdatetype) {
-                            lp = wcstok(NULL, L":");
-                            t.wSecond = _wtoi(lp);
-                            lpyear[4] = 0;
-                            t.wYear = _wtoi(lpyear);
-                        } else
-                            t.wYear = 0;
-                        if (t.wYear == 0) {
-                            SYSTEMTIME st;
-                            GetSystemTime(&st); /*Default to this year,  or the year before!*/
-                            /*1 year before: problematisch,  wenn Server in anderer Zeitzone!
-                                -> mindestens 2 Tage Unterschied*/
-                            t.wYear = st.wYear;
-                            if (t.wMonth > st.wMonth + 1 || (t.wMonth > st.wMonth && t.wDay > 2) ||
-                                (t.wMonth == st.wMonth && t.wDay > st.wDay + 2))
-                                t.wYear--;
-                        }
-                    } else {
-                        t.wYear = _wtoi(lp1);
-                        if (t.wYear < 100)
-                            t.wYear += 1900;
-                        if (t.wYear < 1980)
-                            t.wYear += 100;
-                        /*Novell: Zeit nach Jahr!*/
-                        lp1 = lp2 + 1;
-                        while (lp1[0] == ' ') lp1++;
-                        if (DecodeNumber(&lp1, &num)) {  /*Stunde überspringen*/
-                            t.wHour = num;
-                            lp1--;
-                            ch = lp1[0];
-                            lp1++;
-                            if (ch == ':' || (ch == '.' && isadigit(lp1[0])) &&
-                                !DecodeNumber(&lp1, &num)) /*Zeit*/
-                                lp1 = NULL;
-                            else {
-                                t.wMinute = num;
-                                if (wcsncmp(lp1, L"PM ", 3)==0) { /*Zeit: pm*/
-                                    if (t.wHour != 12)
-                                        t.wHour += 12;
-                                } else if (wcsncmp(lp1, L"AM ", 3)==0) /*Zeit: am*/
-                                    if (t.wHour == 12) t.wHour = 0;
-                            }
-                        } else lp1 = NULL;
-                        if (lp1 == NULL) {
+        } else {
+            t.wYear = _wtoi(lp1);
+            if (t.wYear < 100)
+                t.wYear += 1900;
+            if (t.wYear < 1980)
+                t.wYear += 100;
+            /* Novell: Zeit nach Jahr! */
+            lp1 = lp2 + 1;
+            while (lp1[0] == ' ') lp1++;
+            if (DecodeNumber(&lp1, &num)) {  /*Stunde überspringen*/
+                t.wHour = num;
+                const WCHAR ch = lp1[-1];
+                if (ch == ':' || (ch == '.' && isadigit(lp1[0])) && !DecodeNumber(&lp1, &num)) { /* Zeit */
+                    lp1 = NULL;
+                } else {
+                    t.wMinute = num;
+                    if (wcsncmp(lp1, L"PM ", 3) == 0) {        /* Zeit: pm */
+                        if (t.wHour != 12)
+                            t.wHour += 12;
+                    } else if (wcsncmp(lp1, L"AM ", 3) == 0) { /* Zeit: am */
+                        if (t.wHour == 12)
                             t.wHour = 0;
-                            t.wMinute = 0;
-                            hastime = false;
-                        }
                     }
-                    if (t.wYear < 1980) {
-                        t.wYear = 1980;
-                        t.wDay = 1;
-                        t.wMonth = 1;
-                    }
-                    if (!hastime) {
-                        t.wHour = 0;
-                        t.wMinute = 0;
-                        t.wSecond = 0;
-                    }
-                    t.wMilliseconds = 0;
-                    FILETIME datetime1;  //convert to system time
-                    SystemTimeToFileTime(&t, &datetime1);
-                    LocalFileTimeToFileTime(&datetime1, datetime);
                 }
+            } else {
+                lp1 = NULL;
+            }
+            if (lp1 == NULL) {
+                t.wHour = 0;
+                t.wMinute = 0;
+                hastime = false;
             }
         }
-    } else { /*Month in other language*/
-        *sizefile = GetSizeFromFront(lpstr);
+        if (t.wYear < 1980) {
+            t.wYear = 1980;
+            t.wDay = 1;
+            t.wMonth = 1;
+        }
+        if (!hastime) {
+            t.wHour = 0;
+            t.wMinute = 0;
+            t.wSecond = 0;
+        }
+        t.wMilliseconds = 0;
+        FILETIME datetime1;   // convert to system time
+        SystemTimeToFileTime(&t, &datetime1);
+        LocalFileTimeToFileTime(&datetime1, datetime);
     }
 }
 
-void ReadDateTimeSizeUser(WCHAR* lpStr, WCHAR* lpDate, FILETIME* datetime, __int64* sizefile)
+static void ReadDateTimeSizeUser(LPWSTR lpStr, LPWSTR lpDate, LPFILETIME datetime, PINT64 sizefile)
 {
-    WCHAR* lpSize;
     if (lpDate) {
-        lpSize = lpDate;
+        LPWSTR lpSize = lpDate;
         if (lpSize > lpStr) {
             lpSize--;
             while (lpSize > lpStr && lpSize[0] == ' ') lpSize--;
@@ -560,11 +583,11 @@ void ReadDateTimeSizeUser(WCHAR* lpStr, WCHAR* lpDate, FILETIME* datetime, __int
         lpDate += 2;  // skip >>
         if (wcslen(lpDate) > 15 && lpDate[8] == '_') {
             t.wYear   = get4digits(lpDate);
-            t.wMonth  = get2digits(lpDate+4);
-            t.wDay    = get2digits(lpDate+6);
-            t.wHour   = get2digits(lpDate+9);
-            t.wMinute = get2digits(lpDate+11);
-            t.wSecond = get2digits(lpDate+13);
+            t.wMonth  = get2digits(lpDate + 4);
+            t.wDay    = get2digits(lpDate + 6);
+            t.wHour   = get2digits(lpDate + 9);
+            t.wMinute = get2digits(lpDate + 11);
+            t.wSecond = get2digits(lpDate + 13);
             t.wMilliseconds = 0;
             FILETIME datetime1;  //convert to system time
             SystemTimeToFileTime(&t, &datetime1);
@@ -573,27 +596,22 @@ void ReadDateTimeSizeUser(WCHAR* lpStr, WCHAR* lpDate, FILETIME* datetime, __int
     }
 }
 
-BOOL ReadDirLineUNIX(WCHAR* lpStr, WCHAR* thename, int maxlen, __int64* sizefile, FILETIME* datetime, 
-                     DWORD* attr, DWORD* UnixAttr, BOOL longdatetype)
+bool ReadDirLineUNIX(LPWSTR lpStr, LPWSTR name, int maxlen, PINT64 sizefile, LPFILETIME datetime, PDWORD attr, PDWORD UnixAttr, int flags)
 {
-    WCHAR *pstr, *pstr2, *Permissions;
+    LPWSTR pstr;
     int linktest;
 
-    /* assume UNIX ls format 
-        if permissions start with 'd' its a directory */
+    /* assume UNIX ls format if permissions start with 'd' its a directory */
     *attr = 0;
     *UnixAttr = 0;
-    WCHAR testbuf[8];
-    wcslcpy2(testbuf, lpStr, 6);
-    _wcsupr(testbuf);
-    if (wcsncmp(testbuf, L"TOTAL", 5)==0)
+    if (wcsnicmp(lpStr, L"TOTAL", 5) == 0)
         return false;
 
-    Permissions = FindUnixPermissions(lpStr, UnixAttr); //Wegen CLIX-Unix!
+    LPCWSTR Permissions = FindUnixPermissions(lpStr, UnixAttr); // Wegen CLIX-Unix!
     if (Permissions == NULL)
         return false;
 
-    pstr2 = wcsstr(lpStr, L">>");   // user-defined date format ->easier to parse
+    LPWSTR pstr2 = wcsstr(lpStr, L">>");   // user-defined date format ->easier to parse
     if (pstr2) {
         pstr = wcschr(pstr2, ' ');
         if (!pstr)
@@ -601,9 +619,10 @@ BOOL ReadDirLineUNIX(WCHAR* lpStr, WCHAR* thename, int maxlen, __int64* sizefile
         pstr++;
         ReadDateTimeSizeUser(lpStr, pstr2, datetime, sizefile);
     } else {
-        pstr = FindNameUnix(lpStr, &linktest, longdatetype);
+        pstr = FindNameUnix(lpStr, &linktest, flags);
+        if (!pstr)
+            return false;
         *attr = 0;
-
         if (Permissions[0] == 'l') {      // könnte beides sein!
             *attr |= falink;              // Zeigt Link an
         }
@@ -614,12 +633,14 @@ BOOL ReadDirLineUNIX(WCHAR* lpStr, WCHAR* thename, int maxlen, __int64* sizefile
         if (wcsstr(lpStr, L"<DIR>") || wcsstr(lpStr, L"<dir>"))
             *attr |= FILE_ATTRIBUTE_DIRECTORY;
     }
-    wcslcpy2(thename, pstr, maxlen-1);
+    wcslcpy2(name, pstr, maxlen-1);
     pstr[0] = 0;      // Namen nicht als Monatsnamen erkennen!
     if (!pstr2)
         ReadDateTimeSizeUnix(lpStr, datetime, sizefile);
+
     if (*attr & (falink | FILE_ATTRIBUTE_DIRECTORY))
-        *sizefile = 0;    //Wegen Progress!
-    return thename[0] != 0 && wcscmp(thename, L".") != 0;
+        *sizefile = 0;    // Wegen Progress!
+
+    return name[0] && wcscmp(name, L".");
 }
 

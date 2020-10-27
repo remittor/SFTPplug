@@ -1,7 +1,8 @@
 #pragma once
 
-#define falink 64   // Flag for link
+#define falink   0x0040   // Flag for link, equ FILE_ATTRIBUTE_DEVICE
 
-BOOL ReadDirLineUNIX(WCHAR* lpStr, WCHAR* thename, int maxlen, __int64* sizefile, FILETIME* datetime,
-                     DWORD* attr, DWORD* UnixAttr, BOOL longdatetype);
+#define FLAG_HAVE_LONGDATETYPE   0x0001
+
+bool ReadDirLineUNIX(LPWSTR lpStr, LPWSTR name, int maxlen, PINT64 sizefile, LPFILETIME datetime, PDWORD attr, PDWORD UnixAttr, int flags);
 
