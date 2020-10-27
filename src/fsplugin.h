@@ -110,19 +110,29 @@
 #define FS_CHK_ERR_BUSY   -1           // Checksum calculation still active, try again
 #define FS_CHK_ERR_FAIL   -2           // Failed to get checksum
 
+#define FS_TIME_UNKNOWN  (UINT64)(-2LL)   // Use the following settings for files which don't have a time
+
 
 typedef struct {
-    DWORD SizeLow;
-    DWORD SizeHigh;
-    FILETIME LastWriteTime;
-    int Attr;
+    union {
+        struct {
+            DWORD SizeLow;
+            DWORD SizeHigh;
+        };
+        INT64 Size64;
+    };
+    union {
+        FILETIME LastWriteTime;
+        INT64   iLastWriteTime;
+    };
+    DWORD Attr;
 } RemoteInfoStruct;
 
 typedef struct {
-    int size;
+    int   size;
     DWORD PluginInterfaceVersionLow;
     DWORD PluginInterfaceVersionHi;
-    char DefaultIniName[MAX_PATH];
+    char  DefaultIniName[MAX_PATH];
 } FsDefaultParamStruct;
 
 // callback functions
@@ -248,10 +258,10 @@ typedef struct {
 
 
 typedef struct {
-    int size;
+    int   size;
     DWORD PluginInterfaceVersionLow;
     DWORD PluginInterfaceVersionHi;
-    char DefaultIniName[MAX_PATH];
+    char  DefaultIniName[MAX_PATH];
 } ContentDefaultParamStruct;
 
 typedef struct {
