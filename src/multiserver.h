@@ -1,21 +1,21 @@
 #pragma once
 
-#define SERVERID void*
-#define SERVERHANDLE void*
+/* FIXME: create class ServerList */
 
-typedef void SAVECALLBACK(char* inifilename, SERVERID serverid);
+typedef LPVOID  SERVERID;
+typedef LPVOID  SERVERHANDLE;
 
-void InitMultiServer();
-int LoadServersFromIni(char* inifilename, char* quickconnectname);
-BOOL DeleteServerFromIni(char* servername, char* inifilename);
-int CopyMoveServerInIni(char* oldservername, char* newservername, BOOL Move, BOOL OverWrite, char* inifilename);
-void FreeServerList();
+void InitMultiServer() noexcept;
+int  LoadServersFromIni(LPCSTR inifilename, LPCSTR quickconnectname) noexcept;
+bool DeleteServerFromIni(LPCSTR servername, LPCSTR inifilename) noexcept;
+int  CopyMoveServerInIni(LPCSTR oldservername, LPCSTR newservername, bool Move, bool OverWrite, LPCSTR inifilename) noexcept;
+void FreeServerList() noexcept;
 
-SERVERID GetServerIdFromName(char* servername, DWORD threadid);
-BOOL SetServerIdForName(char* displayname, SERVERID newid);
+SERVERID GetServerIdFromName(LPCSTR servername, DWORD threadid) noexcept;
+bool SetServerIdForName(LPCSTR displayname, SERVERID newid) noexcept;
 
-void GetDisplayNameFromPath(char* Path, char* DisplayName, int maxlen);
+void GetDisplayNameFromPath(LPCSTR Path, LPSTR DisplayName, size_t maxlen) noexcept;
 
-SERVERHANDLE FindFirstServer(char* displayname, int maxlen);
-SERVERHANDLE FindNextServer(SERVERHANDLE searchhandle, char* displayname, int maxlen);
+SERVERHANDLE FindFirstServer(LPSTR displayname, size_t maxlen) noexcept;
+SERVERHANDLE FindNextServer(SERVERHANDLE searchhandle, LPSTR displayname, size_t maxlen) noexcept;
 

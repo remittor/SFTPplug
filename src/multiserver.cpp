@@ -1,140 +1,227 @@
 #include <windows.h>
 #include "multiserver.h"
 #include "utils.h"
+#include "fsplugin.h"
 
 // save servers in linked list
 
-typedef struct {
-    char displayname[260];
-    SERVERID serverid;
-    void* next;
-    BOOL serverupdated;
-    DWORD threadid;    // for background threads only!
+typedef struct _SERVERENTRY {
+    struct _SERVERENTRY * next;
+    SERVERID   serverid;          // object from LibSSH2
+    DWORD      threadid;          // for background threads only!
+    CHAR       displayname[MAX_PATH];
+    bool       serverupdated;
 } SERVERENTRY, *PSERVERENTRY;
 
 PSERVERENTRY server_linked_list = NULL;
 PSERVERENTRY background_linked_list = NULL;
 CRITICAL_SECTION bgcriticalsection = {0};
-BOOL bgcriticalsectioninitialized = false;
+bool bgcriticalsectioninitialized = false;
 extern DWORD mainthreadid;
 
-void InitMultiServer()
+/* FIXME: create class ServerList */
+
+void InitMultiServer() noexcept
 {
     if (!bgcriticalsectioninitialized) {
         bgcriticalsectioninitialized = true;
-        InitializeCriticalSection(&bgcriticalsection);
+        InitializeCriticalSection(&bgcriticalsection);  /* FIXME: DeleteCriticalSection not used! */
     }
 }
 
-int LoadServersFromIni(char* inifilename, char* quickconnectname)
+/* =============================================================================================== */
+
+#define MS_FLAG_BKGR           0x0001
+#define MS_FLAG_NOLINK         0x0002
+#define MS_FLAG_ADDTOHEAD      0x0004
+#define MS_FLAG_FREEALL        0x0008
+
+__forceinline
+static PSERVERENTRY GetHeadSrvEntry(int flags) noexcept
+{
+    return (flags & MS_FLAG_BKGR) ? background_linked_list : server_linked_list;
+}
+
+__forceinline
+static void SetHeadSrvEntry(PSERVERENTRY head, int flags) noexcept
+{
+    if (flags & MS_FLAG_BKGR)
+        background_linked_list = head;
+    else
+        server_linked_list = head;
+}
+
+__forceinline
+static PSERVERENTRY GetTailSrvEntry(int flags = 0) noexcept
+{
+    PSERVERENTRY tail = NULL;
+    for (PSERVERENTRY ps = GetHeadSrvEntry(flags); ps; ps = ps->next) {
+        tail = ps;
+    }
+    return tail;
+}
+
+__forceinline
+static PSERVERENTRY GetPrevSrvEntry(PSERVERENTRY se, int flags = 0) noexcept
+{
+    PSERVERENTRY prev = NULL;
+    for (PSERVERENTRY ps = GetHeadSrvEntry(flags); ps; ps = ps->next) {
+        if (ps == se)
+            return prev;
+        prev = ps;
+    }
+    return prev;
+}
+
+__forceinline
+static void SrvListClearUpdateFlag(int flags = 0) noexcept
+{
+    for (PSERVERENTRY ps = GetHeadSrvEntry(flags); ps; ps = ps->next) {
+        ps->serverupdated = false;
+    }
+}
+
+__forceinline
+static PSERVERENTRY GetSrvEntryByThreadAndName(DWORD tid, LPCSTR name, int flags = 0) noexcept
+{
+    for (PSERVERENTRY ps = GetHeadSrvEntry(flags); ps; ps = ps->next) {
+        if (tid && ps->threadid != tid)
+            continue;
+        if (_stricmp(ps->displayname, name) == 0)
+            return ps;
+    }
+    return NULL;
+}
+
+__forceinline
+static PSERVERENTRY GetSrvEntryByName(LPCSTR name, int flags = 0) noexcept
+{
+    return GetSrvEntryByThreadAndName(0, name, flags);
+}
+
+static PSERVERENTRY CreateSrvEntry(LPCSTR name, int flags = 0) noexcept
+{
+    PSERVERENTRY newentry = (PSERVERENTRY)malloc(sizeof(SERVERENTRY));
+    if (!newentry)
+        return NULL;
+    memset(newentry, 0, sizeof(SERVERENTRY));
+    strlcpy(newentry->displayname, name, sizeof(newentry->displayname)-1);
+    newentry->serverupdated = true;
+    if ((flags & MS_FLAG_NOLINK) == 0) {
+        if (flags & MS_FLAG_ADDTOHEAD) {
+            newentry->next = GetHeadSrvEntry(flags);
+            SetHeadSrvEntry(newentry, flags);
+        } else {    
+            PSERVERENTRY tail = GetTailSrvEntry(flags);
+            if (tail)
+                tail->next = newentry;
+            else
+                SetHeadSrvEntry(newentry, flags);
+        }
+    }
+    return newentry;
+}
+
+static void DestroySrvEntry(PSERVERENTRY se, int flags = 0) noexcept
+{
+    if (!se)
+        return;
+    PSERVERENTRY prev_entry = GetPrevSrvEntry(se);
+    if (prev_entry)
+        prev_entry->next = se->next;
+    else
+        SetHeadSrvEntry(se->next, flags);
+    if (flags & MS_FLAG_FREEALL) {
+        if (se->serverid)
+            free(se->serverid);     /* FIXME: Doesn't this object have a destructor? */
+    }
+    free(se);
+}
+
+static bool SetServerId(PSERVERENTRY se, SERVERID newid, int flags = 0) noexcept
+{
+    if (!se)
+        return false;
+    if (se->serverid)
+        free(se->serverid);  /* FIXME: maybe this object has its own destructor? */
+    se->serverid = newid;
+    return true;
+}
+
+/* =============================================================================================== */
+
+/* FIXME: use Unicode name for working files in local user directory */
+int LoadServersFromIni(LPCSTR inifilename, LPCSTR quickconnectname) noexcept
 {
     // Retrieve server list
     int servercount = 0;
     char serverlist[65535];
-    PSERVERENTRY preventry = NULL;
-    BOOL updating = (server_linked_list != NULL);
+
+    bool updating = (server_linked_list != NULL);
     if (updating) { // list exists -> update!
-        PSERVERENTRY thisentry;
-        thisentry = server_linked_list;
-        while (thisentry) {
-            thisentry->serverupdated = false;
-            preventry = thisentry;
-            thisentry = (PSERVERENTRY)(thisentry->next);
-        }
+        SrvListClearUpdateFlag();
     }
     GetPrivateProfileString(NULL, NULL, "", serverlist, sizeof(serverlist), inifilename);
-    char *p = serverlist;
+    LPSTR p = serverlist;
     while (p[0]) {
         // Each server MUST have the value "server"!!!
         char server[512];
         GetPrivateProfileString(p, "server", "", server, sizeof(server), inifilename);
         if (server[0]) {
-            PSERVERENTRY newentry;
             servercount++;
-            BOOL serverfound = false;
+            PSERVERENTRY thisentry = NULL;
             if (updating) {  // look if entry already exists
-                PSERVERENTRY thisentry = server_linked_list;
-                while (thisentry) {
-                    if (_stricmp(thisentry->displayname, p) == 0) {
-                        thisentry->serverupdated = true;
-                        serverfound = true;
-                        break;
-                    }
-                    thisentry = (PSERVERENTRY)(thisentry->next);
-                }
+                thisentry = GetSrvEntryByName(p);
+                if (thisentry)
+                    thisentry->serverupdated = true;
             }
-            if (!serverfound) {
-                newentry = (PSERVERENTRY)malloc(sizeof(SERVERENTRY));
-                if (newentry) {
-                    strlcpy(newentry->displayname, p, sizeof(newentry->displayname)-1);
-                    newentry->serverid = NULL;
-                    newentry->next = NULL;
-                    newentry->serverupdated = true;
-                }
-                if (preventry)
-                    preventry->next = newentry;
-                else
-                    server_linked_list = newentry;
-                preventry = newentry;
+            if (!thisentry) {
+                CreateSrvEntry(p);
             }
         }
         p += strlen(p) + 1;
     }
-    // now delete all servers which aren't currently connected,  and no longer in ini file
+    // now delete all servers which aren't currently connected, and no longer in ini file
     if (updating) { // list exists -> update!
-        PSERVERENTRY thisentry, preventry, nextentry;
-        thisentry = server_linked_list;
-        preventry = NULL; 
-        BOOL needrelink = false; // need to re-link linked list
-        while (thisentry) {
-            if (!thisentry->serverupdated && thisentry->serverid == NULL && (quickconnectname == NULL || strcmp(thisentry->displayname, quickconnectname) != 0)) {
-                if (preventry)
-                    preventry->next = NULL;
-                nextentry = (PSERVERENTRY)(thisentry->next);
-                free(thisentry);
-                needrelink = true;
-            } else {
-                if (needrelink) {
-                    needrelink = false;
-                    if (preventry)
-                        preventry->next = thisentry;
-                    else
-                        server_linked_list = thisentry; // the first was deleted
-                }
-                preventry = thisentry;
-                nextentry = (PSERVERENTRY)(thisentry->next);
-            }
-            thisentry = nextentry;
+        PSERVERENTRY se = server_linked_list;
+        while (se) {            
+            bool destroy = true;
+            if (se->serverupdated || se->serverid)
+                destroy = false;   /* skip */
+            if (quickconnectname && strcmp(se->displayname, quickconnectname) == 0)
+                destroy = false;   /* skip */
+            PSERVERENTRY xse = se;
+            se = se->next;
+            if (destroy)
+                DestroySrvEntry(xse);   /* FIXME: use MS_FLAG_FREEALL ??? */
         }
     }
     // add "quick connect" entry as first list item
     if (!updating && quickconnectname) {
-        PSERVERENTRY newentry = (PSERVERENTRY)malloc(sizeof(SERVERENTRY));
+        PSERVERENTRY newentry = CreateSrvEntry(quickconnectname, MS_FLAG_ADDTOHEAD);
         if (newentry) {
-            strcpy(newentry->displayname, quickconnectname);
-            newentry->serverid = NULL;
-            newentry->next = server_linked_list;
-            newentry->serverupdated = true;
-            server_linked_list = newentry;
             servercount++;
+        } else {
+            quickconnectname = false;
         }
     }
     if (!quickconnectname)          // actually it's never 0 if there is a "Quick connection!"
         if (servercount == 0)
             server_linked_list = NULL;
+
     return servercount;
 }
 
-BOOL DeleteServerFromIni(char* servername, char* inifilename)
+bool DeleteServerFromIni(LPCSTR servername, LPCSTR inifilename) noexcept
 {
-    return WritePrivateProfileString(servername, NULL, NULL, inifilename);
+    return WritePrivateProfileString(servername, NULL, NULL, inifilename) ? true : false;
 }
 
-int CopyMoveServerInIni(char* oldservername, char* newservername, BOOL Move, BOOL OverWrite, char* inifilename)
+int CopyMoveServerInIni(LPCSTR oldservername, LPCSTR newservername, bool Move, bool OverWrite, LPCSTR inifilename) noexcept
 {
     char captlist[1024];
     if (_stricmp(oldservername, newservername) == 0)
-        return 0;
+        return FS_FILE_OK;
 
     // now copy the options
     GetPrivateProfileString(oldservername, NULL, "", captlist, sizeof(captlist)-1, inifilename);
@@ -145,13 +232,13 @@ int CopyMoveServerInIni(char* oldservername, char* newservername, BOOL Move, BOO
             testlist[0] = 0;
             GetPrivateProfileString(newservername, NULL, "", testlist, sizeof(testlist)-1, inifilename);
             if (testlist[0])
-                return 1;
+                return FS_FILE_EXISTS;
         }
 
         // Kill target section to delete fields not present in source section
         DeleteServerFromIni(newservername, inifilename);
 
-        char* pcapt = captlist;
+        LPSTR pcapt = captlist;
         while (pcapt[0]) {
             char valuebuf[1024];
             GetPrivateProfileString(oldservername, pcapt, "", valuebuf, sizeof(valuebuf)-1, inifilename);
@@ -160,150 +247,104 @@ int CopyMoveServerInIni(char* oldservername, char* newservername, BOOL Move, BOO
         }
         if (Move)
             DeleteServerFromIni(oldservername, inifilename);
-        return 0;
+        return FS_FILE_OK;
     }
-    return 2;
+    return FS_FILE_NOTFOUND;
 }
 
-void FreeServerList()
+/* FIXME: This function is not used anywhere! */
+void FreeServerList() noexcept
 {
     if (server_linked_list) {
-        PSERVERENTRY thisentry;
-        thisentry = server_linked_list;
-        while (thisentry) {
-            PSERVERENTRY nextentry = (PSERVERENTRY)(thisentry->next);
-            if (thisentry->serverid)
-                free(thisentry->serverid);
-            free(thisentry);
-            thisentry = nextentry;
+        PSERVERENTRY se = server_linked_list;
+        while (se) {
+            PSERVERENTRY xse = se;
+            se = se->next;
+            DestroySrvEntry(xse, MS_FLAG_FREEALL);
         }
     }
 }
 
-SERVERID GetServerIdFromName(char* displayname, DWORD threadid)
+static SERVERID GetServerIdByThreadAndName(DWORD tid, LPCSTR displayname, int flags = 0) noexcept
 {
+    PSERVERENTRY se = GetSrvEntryByThreadAndName(tid, displayname, flags);
+    return (se != NULL) ? se->serverid : NULL;
+}
+
+SERVERID GetServerIdFromName(LPCSTR displayname, DWORD threadid) noexcept
+{
+    SERVERID rv = NULL;
     if (threadid == mainthreadid) {
-        if (server_linked_list) {
-            PSERVERENTRY thisentry;
-            thisentry = server_linked_list;
-            while (thisentry) {
-                if (_stricmp(thisentry->displayname, displayname) == 0)
-                    return thisentry->serverid;
-                thisentry = (PSERVERENTRY)(thisentry->next);
-            }
-        }
-    } else {
-        EnterCriticalSection(&bgcriticalsection);
-        __try {
-            if (background_linked_list) {
-                PSERVERENTRY thisentry;
-                thisentry = background_linked_list;
-                while (thisentry) {
-                    if (_stricmp(thisentry->displayname, displayname) == 0 && thisentry->threadid == threadid)
-                        return thisentry->serverid;
-                    thisentry = (PSERVERENTRY)(thisentry->next);
-                }
-            }
-        }
-        __finally {
-            LeaveCriticalSection(&bgcriticalsection);
-        }
+        return GetServerIdByThreadAndName(0, displayname);
     }
-    return NULL;
+    EnterCriticalSection(&bgcriticalsection);    /* FIXME: replace to RAII object */
+    {
+        rv = GetServerIdByThreadAndName(threadid, displayname, MS_FLAG_BKGR);
+    }
+    LeaveCriticalSection(&bgcriticalsection);
+    return rv;
 }
 
-BOOL SetServerIdForName(char* displayname, SERVERID newid)
+bool SetServerIdForName(LPCSTR displayname, SERVERID newid) noexcept
 {
-    DWORD id = GetCurrentThreadId();
-    if (id == mainthreadid) {
-        if (server_linked_list) {
-            PSERVERENTRY thisentry;
-            thisentry = server_linked_list;
-            while (thisentry) {
-                if (_stricmp(thisentry->displayname, displayname) == 0) {
-                    if (thisentry->serverid)
-                        free(thisentry->serverid);
-                    thisentry->serverid = newid;
-                    return true;
-                }
-                thisentry = (PSERVERENTRY)(thisentry->next);
+    bool rv = false;
+    DWORD tid = GetCurrentThreadId();
+    if (tid == mainthreadid) {
+        PSERVERENTRY se = GetSrvEntryByName(displayname);
+        return SetServerId(se, newid, 0);
+    }
+    EnterCriticalSection(&bgcriticalsection);  /* FIXME: replace to RAII object */
+    {
+        PSERVERENTRY se = GetSrvEntryByThreadAndName(tid, displayname, MS_FLAG_BKGR);
+        if (se) {
+            if (newid) {
+                SetServerId(se, newid, MS_FLAG_BKGR);
+            } else {
+                DestroySrvEntry(se, MS_FLAG_BKGR);  /* FIXME: use MS_FLAG_FREEALL ??? */
             }
-        }
-    } else {
-        EnterCriticalSection(&bgcriticalsection);
-        __try {
-            if (background_linked_list) {
-                PSERVERENTRY thisentry, preventry;
-                preventry = NULL;
-                thisentry = background_linked_list;
-                while (thisentry) {
-                    if (_stricmp(thisentry->displayname, displayname) == 0 &&
-                        thisentry->threadid == id) {
-                        if (thisentry->serverid)
-                            free(thisentry->serverid);
-                        if (newid)
-                            thisentry->serverid = newid;
-                        else {
-                            // remove from linked list!
-                            if (!preventry)
-                                background_linked_list = (PSERVERENTRY)(thisentry->next);
-                            else
-                                preventry->next = thisentry->next;
-                            free(thisentry);
-                        }
-                        return true;
-                    }
-                    preventry = thisentry;
-                    thisentry = (PSERVERENTRY)(thisentry->next);
-                }
-            }
-            PSERVERENTRY newentry = (PSERVERENTRY)malloc(sizeof(SERVERENTRY));
+            rv = true;
+        } else {
+            // insert at the beginning!
+            PSERVERENTRY newentry = CreateSrvEntry(displayname, MS_FLAG_BKGR | MS_FLAG_ADDTOHEAD);
             if (newentry) {
-                strcpy(newentry->displayname, displayname);
-                newentry->serverid = newid;
-                newentry->serverupdated = true;
-                newentry->threadid = id;
-                // insert at the beginning!
-                newentry->next = background_linked_list;
-                background_linked_list = newentry;
+                newentry->threadid = tid;
+                /* FIXME: set `rv` to true? */
             }
         }
-        __finally {
-            LeaveCriticalSection(&bgcriticalsection);
-        }
     }
-    return false;
+    LeaveCriticalSection(&bgcriticalsection);
+    return rv;   
 }
 
-void GetDisplayNameFromPath(char* Path, char* DisplayName, int maxlen)
+void GetDisplayNameFromPath(LPCSTR Path, LPSTR DisplayName, size_t maxlen) noexcept
 {
-    char* p = Path;
-    while (p[0] == '\\' || p[0] == '/')
+    LPSTR p = (LPSTR)Path;
+    while (*p == '\\' || *p == '/')
         p++;
     strlcpy(DisplayName, p, maxlen);
     p = DisplayName;
-    while (p[0] != 0 && p[0] != '\\' && p[0] != '/')
+    while (*p && *p != '\\' && *p != '/')
         p++;
-    p[0] = 0;
+    *p = 0;
 }
 
-SERVERHANDLE FindFirstServer(char* displayname, int maxlen)
+SERVERHANDLE FindFirstServer(LPSTR displayname, size_t maxlen) noexcept
 {
     if (server_linked_list) {
         strlcpy(displayname, server_linked_list->displayname, maxlen);
-        return server_linked_list;
+        return (SERVERHANDLE)server_linked_list;
     }
     return NULL;
 }
 
-SERVERHANDLE FindNextServer(SERVERHANDLE searchhandle, char* displayname, int maxlen)
+SERVERHANDLE FindNextServer(SERVERHANDLE searchhandle, LPSTR displayname, size_t maxlen) noexcept
 {
     if (searchhandle) {
-        PSERVERENTRY thisentry = (PSERVERENTRY)(searchhandle);
-        thisentry = (PSERVERENTRY)thisentry->next;
+        PSERVERENTRY thisentry = (PSERVERENTRY)searchhandle;
+        thisentry = thisentry->next;
         if (thisentry) {
             strlcpy(displayname, thisentry->displayname, maxlen);
-            return thisentry;
+            return (SERVERHANDLE)thisentry;
         }
     }
     return NULL;
