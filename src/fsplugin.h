@@ -137,14 +137,14 @@ typedef struct {
 
 // callback functions
 typedef int  (WINAPI *tProgressProc)(int PluginNr, char* SourceName, char* TargetName, int PercentDone);
-typedef int  (WINAPI *tProgressProcW)(int PluginNr, WCHAR* SourceName, WCHAR* TargetName, int PercentDone);
+typedef int  (WINAPI *tProgressProcW)(int PluginNr, LPCWSTR SourceName, LPCWSTR TargetName, int PercentDone);
 typedef void (WINAPI *tLogProc)(int PluginNr, int MsgType, char* LogString);
-typedef void (WINAPI *tLogProcW)(int PluginNr, int MsgType, WCHAR* LogString);
+typedef void (WINAPI *tLogProcW)(int PluginNr, int MsgType, LPCWSTR LogString);
 
 typedef BOOL (WINAPI *tRequestProc)(int PluginNr, int RequestType, char* CustomTitle, char* CustomText, char* ReturnedText, int maxlen);
-typedef BOOL (WINAPI *tRequestProcW)(int PluginNr, int RequestType, WCHAR* CustomTitle, WCHAR* CustomText, WCHAR* ReturnedText, int maxlen);
+typedef BOOL (WINAPI *tRequestProcW)(int PluginNr, int RequestType, LPCWSTR CustomTitle, LPCWSTR CustomText, LPWSTR ReturnedText, int maxlen);
 typedef int  (WINAPI *tCryptProc)(int PluginNr, int CryptoNr, int Mode, char* ConnectionName, char* Password, int maxlen);
-typedef int  (WINAPI *tCryptProcW)(int PluginNr, int CryptoNr, int Mode, WCHAR* ConnectionName, WCHAR* Password, int maxlen);
+typedef int  (WINAPI *tCryptProcW)(int PluginNr, int CryptoNr, int Mode, LPCWSTR ConnectionName, LPWSTR Password, int maxlen);
 
 // Function prototypes
 int  WINAPI FsInit(int PluginNr, tProgressProc pProgressProc, tLogProc pLogProc, tRequestProc pRequestProc);
