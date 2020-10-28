@@ -3,6 +3,8 @@
 #include <windows.h>
 #include "fsplugin.h"
 #include "utils.h"
+#include "CVTUTF.H"
+
 
 #define wdirtypemax 1024
 
@@ -18,6 +20,9 @@ LPSTR  walcopy(LPSTR outname, LPCWSTR inname, size_t maxlen) noexcept;
 LPSTR  walcopyCP(int codepage, LPSTR outname, LPCWSTR inname, size_t maxlen) noexcept;
 LPWSTR awlcopy(LPWSTR outname, LPCSTR inname, size_t maxlen) noexcept;
 LPWSTR awlcopyCP(int codepage, LPWSTR outname, LPCSTR inname, size_t maxlen) noexcept;
+
+int ConvUTF16toUTF8(LPCWSTR inbuf, size_t inlen, LPSTR outbuf, size_t outmax, bool nullterm = true) noexcept;
+int ConvUTF8toUTF16(LPCSTR inbuf, size_t inlen, LPWSTR outbuf, size_t outmax, bool nullterm = true) noexcept;
 
 #define wafilenamecopy(outname, inname)  walcopy(outname, inname, _countof(outname)-1)
 #define awfilenamecopy(outname, inname)  awlcopy(outname, inname, _countof(outname)-1)
@@ -43,3 +48,4 @@ UINT ExtractIconExT(LPCWSTR lpszFile, int nIconIndex, HICON * phiconLarge, HICON
 
 HANDLE FindFirstFileT(LPCWSTR lpFileName, LPWIN32_FIND_DATAW lpFindFileData) noexcept;
 BOOL FindNextFileT(HANDLE hFindFile, LPWIN32_FIND_DATAW lpFindFileData) noexcept;
+

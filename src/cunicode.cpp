@@ -58,6 +58,45 @@ LPWSTR wcslcat(LPWSTR str1, LPCWSTR str2, size_t imaxlen) noexcept
     return str1;
 }
 
+int ConvUTF16toUTF8(LPCWSTR inbuf, size_t inlen, LPSTR outbuf, size_t outmax, bool nullterm) noexcept
+{
+    if (nullterm)
+        outbuf[0] = 0;
+    if (inlen == 0)
+        inlen = wcslen(inbuf);
+    if (inlen == 0)
+        return 0;
+    if (outmax < 2)
+        return -1;
+    UTF16 * source = (UTF16 *)inbuf;
+    UTF8 * target = (UTF8 *)outbuf;
+    int rc = ConvertUTF16toUTF8(&source, (const UTF16 *)(inbuf + inlen), &target, (const UTF8 *)(outbuf + outmax - 1));
+    size_t outlen = (size_t)target - (size_t)outbuf;
+    if (nullterm)
+        outbuf[outlen] = 0;
+    return (rc == CVT_OK) ? (int)outlen : -1;
+}
+
+int ConvUTF8toUTF16(LPCSTR inbuf, size_t inlen, LPWSTR outbuf, size_t outmax, bool nullterm) noexcept
+{
+    if (nullterm)
+        outbuf[0] = 0;
+    if (inlen == 0)
+        inlen = strlen(inbuf);
+    if (inlen == 0)
+        return 0;
+    if (outmax < 2)
+        return -1;
+    UTF8 * source = (UTF8 *)inbuf;
+    UTF16 * target = (UTF16 *)outbuf;
+    int rc = ConvertUTF8toUTF16(&source, (UTF8 *)(inbuf + inlen), &target, (const UTF16 *)(outbuf + outmax - 1));
+    size_t outlen = ((size_t)target - (size_t)outbuf) / sizeof(WCHAR);
+    if (nullterm)
+        outbuf[outlen] = 0;
+    return (rc == CVT_OK) ? (int)outlen : -1;
+}
+
+
 // return true if name wasn't cut
 static bool MakeExtraLongNameW(LPWSTR outbuf, LPCWSTR inbuf, size_t maxlen) noexcept
 {

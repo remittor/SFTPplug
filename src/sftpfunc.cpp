@@ -120,20 +120,16 @@ BOOL EscapePressed()
     return false;
 }
 
-void strlcpyansitoutf8(char* utf8str, const char* ansistr, int maxlen)
+void strlcpyansitoutf8(LPSTR utf8str, LPCSTR ansistr, size_t maxlen)
 {
     WCHAR utf16buf[1024];
-    UTF16* srcstart = (UTF16*)utf16buf;
-    UTF8* trgstart = (unsigned char*)utf8str;
-    MultiByteToWideChar(CP_ACP, 0, ansistr, -1, utf16buf, sizeof(utf16buf)/2);
-    ConvertUTF16toUTF8(&srcstart, (const UTF16*)(utf16buf + wcslen(utf16buf) + 2), &trgstart, trgstart + maxlen - 1);
+    MultiByteToWideChar(CP_ACP, 0, ansistr, -1, utf16buf, _countof(utf16buf));
+    ConvUTF16toUTF8(utf16buf, 0, utf8str, maxlen);
 }
 
-void wcslcpytoutf8(char* utf8str, WCHAR* utf16str, int maxlen)
+void wcslcpytoutf8(LPSTR utf8str, LPCWSTR utf16str, size_t maxlen)
 {
-    UTF16* srcstart = (UTF16*)utf16str;
-    UTF8* trgstart = (UTF8*)utf8str;
-    ConvertUTF16toUTF8(&srcstart, srcstart + wcslen((WCHAR*)utf16str) + 2, &trgstart, trgstart + maxlen - 1);
+    ConvUTF16toUTF8(utf16str, 0, utf8str, maxlen);
 }
 
 //#define FUNCDEF(f, p) (*f) p // define the functions as pointers
@@ -3080,9 +3076,7 @@ BOOL SftpFindNextFileW(void* serverid, void* davdataptr, WIN32_FIND_DATAW *FindD
         while (ReadChannelLine(channel, completeline, sizeof(completeline)-1, scpd->msgbuf, sizeof(scpd->msgbuf)-1, scpd->errbuf, sizeof(scpd->errbuf)-1)) {
             StripEscapeSequences(completeline);
             if (ConnectSettings->utf8names) {
-                UTF8* srcstart = (unsigned char*)completeline;
-                UTF16* trgstart = (UTF16*)completelinew;
-                ConvertUTF8toUTF16(&srcstart, srcstart + strlen(completeline) + 1, &trgstart, trgstart + countof(completelinew)-1);
+                ConvUTF8toUTF16(completeline, 0, completelinew, _countof(completelinew));
             } else
                 awlcopyCP(ConnectSettings->codepage, completelinew, completeline, countof(completelinew)-1);
 
@@ -3118,9 +3112,7 @@ BOOL SftpFindNextFileW(void* serverid, void* davdataptr, WIN32_FIND_DATAW *FindD
                 p[0] = 0;
             wcslcpy2(FindData->cFileName, namew, countof(FindData->cFileName)-1);
         } else if (ConnectSettings->utf8names) {
-            UTF8* srcstart = (unsigned char*)name;
-            UTF16* trgstart = (UTF16*)&(FindData->cFileName);
-            ConvertUTF8toUTF16(&srcstart, srcstart + strlen(name) + 1, &trgstart, trgstart + countof(FindData->cFileName)-1);
+            ConvUTF8toUTF16(name, 0, FindData->cFileName, _countof(FindData->cFileName));
         } else {
             awlcopyCP(ConnectSettings->codepage, FindData->cFileName, name, countof(FindData->cFileName)-1);
         }
@@ -4370,9 +4362,7 @@ BOOL SftpLinkFolderTargetW(void* serverid, WCHAR* RemoteName, int maxlen)
             strlcat(ReturnedName, ConnectSettings->user, min(maxlen, wdirtypemax));
         }
         if (ConnectSettings->utf8names) {
-            UTF8* srcstart = (UTF8*)ReturnedName;
-            UTF16* trgstart = (UTF16*)RemoteName;
-            ConvertUTF8toUTF16(&srcstart, srcstart + strlen(ReturnedName) + 1, &trgstart, trgstart + maxlen - 1);
+            ConvUTF8toUTF16(ReturnedName, 0, RemoteName, maxlen);
         } else
             awlcopyCP(ConnectSettings->codepage, RemoteName, ReturnedName, maxlen);
         return true;
@@ -4455,9 +4445,7 @@ BOOL SftpLinkFolderTargetW(void* serverid, WCHAR* RemoteName, int maxlen)
         if (linktarget[0]) {
             WCHAR linktargetW[wdirtypemax];
             if (ConnectSettings->utf8names) {
-                UTF8* srcstart = (UTF8*)linktarget;
-                UTF16* trgstart = (UTF16*)linktargetW;
-                ConvertUTF8toUTF16(&srcstart, (UTF8*)linktarget + strlen(linktarget) + 1, &trgstart, trgstart + wdirtypemax - 1);
+                ConvUTF8toUTF16(linktarget, 0, linktargetW, _countof(linktargetW));
             } else
                 awlcopyCP(ConnectSettings->codepage, linktargetW, linktarget, wdirtypemax - 1);
             ShowStatusW(L"Link target:");
@@ -5230,9 +5218,7 @@ void SftpShowPropertiesW(void* serverid, WCHAR* remotename)
     g_statreplyW = NULL;
     if (SftpQuoteCommand2W(serverid, NULL, cmdname, replyA, sizeof(replyA)-1) >= 0) {
         if (ConnectSettings->utf8names) {
-            UTF8* srcstart = (UTF8*)replyA;
-            UTF16* trgstart = (UTF16*)replyW;
-            ConvertUTF8toUTF16(&srcstart, srcstart + strlen(replyA) + 1, &trgstart, trgstart + countof(replyW) - 1);
+            ConvUTF8toUTF16(replyA, 0, replyW, _countof(replyW));
         } else
             awlcopyCP(ConnectSettings->codepage, replyW, replyA, countof(replyW)-1);
         walcopy(replyA, replyW, sizeof(replyA)-1);
@@ -5257,9 +5243,7 @@ void SftpShowPropertiesW(void* serverid, WCHAR* remotename)
         if (SftpQuoteCommand2W(serverid, NULL, cmdname, replyA, sizeof(replyA)-1) >= 0) {
             g_command_ls = true;
             if (ConnectSettings->utf8names) {
-                UTF8* srcstart = (UTF8*)replyA;
-                UTF16* trgstart = (UTF16*)replyW;
-                ConvertUTF8toUTF16(&srcstart, srcstart + strlen(replyA) + 1, &trgstart, trgstart + countof(replyW) - 1);
+                ConvUTF8toUTF16(replyA, 0, replyW, _countof(replyW));
             } else
                 awlcopyCP(ConnectSettings->codepage, replyW, replyA, countof(replyW)-1);
             walcopy(replyA, replyW, sizeof(replyA)-1);
