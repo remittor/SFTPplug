@@ -132,6 +132,27 @@ void wcslcpytoutf8(LPSTR utf8str, LPCWSTR utf16str, size_t maxlen)
     ConvUTF16toUTF8(utf16str, 0, utf8str, maxlen);
 }
 
+void CopyStringW2A(pConnectSettings ConnectSettings, LPCWSTR instr, LPSTR outstr, size_t outmax) noexcept
+{
+    if (ConnectSettings->utf8names) {
+        ConvUTF16toUTF8(instr, 0, outstr, outmax);
+    } else {
+        walcopyCP(ConnectSettings->codepage, outstr, instr, outmax - 1);
+    }
+}
+
+void CopyStringA2W(pConnectSettings ConnectSettings, LPCSTR instr, LPWSTR outstr, size_t outmax, bool useCVT = true) noexcept
+{
+    if (ConnectSettings->utf8names) {
+        if (useCVT)
+            ConvUTF8toUTF16(instr, 0, outstr, outmax);
+        else
+            awlcopyCP(CP_UTF8, outstr, instr, outmax - 1);
+    } else {
+        awlcopyCP(ConnectSettings->codepage, outstr, instr, outmax - 1);
+    }
+}
+
 //#define FUNCDEF(f, p) (*f) p // define the functions as pointers
 //#define FUNCDEF(f, p) WINAPI f p
 
@@ -2900,10 +2921,7 @@ int SftpFindFirstFileW(void* serverid, WCHAR* remotedir, void** davdataptr)
         if (EscapePressed())
             Sleep(100);     // make sure it's not pressed from a previous aborted call!
 
-    if (ConnectSettings->utf8names)
-        wcslcpytoutf8(dirname, remotedir, sizeof(dirname)-1);
-    else
-        walcopyCP(ConnectSettings->codepage, dirname, remotedir, sizeof(dirname)-1);
+    CopyStringW2A(ConnectSettings, remotedir, dirname, _countof(dirname));
     ReplaceBackslashBySlash(dirname);
     if (strlen(dirname) > 1) {
         char* p = dirname + strlen(dirname) - 1;
@@ -3075,10 +3093,7 @@ BOOL SftpFindNextFileW(void* serverid, void* davdataptr, WIN32_FIND_DATAW *FindD
         rc = 0;
         while (ReadChannelLine(channel, completeline, sizeof(completeline)-1, scpd->msgbuf, sizeof(scpd->msgbuf)-1, scpd->errbuf, sizeof(scpd->errbuf)-1)) {
             StripEscapeSequences(completeline);
-            if (ConnectSettings->utf8names) {
-                ConvUTF8toUTF16(completeline, 0, completelinew, _countof(completelinew));
-            } else
-                awlcopyCP(ConnectSettings->codepage, completelinew, completeline, countof(completelinew)-1);
+            CopyStringA2W(ConnectSettings, completeline, completelinew, _countof(completelinew));
 
             if (ReadDirLineUNIX(completelinew, namew, countof(namew)-1, (__int64*)&file.filesize, &datetime, &attr, &file.permissions, 0)) {
                 file.flags = LIBSSH2_SFTP_ATTR_SIZE | LIBSSH2_SFTP_ATTR_PERMISSIONS;
@@ -3111,10 +3126,8 @@ BOOL SftpFindNextFileW(void* serverid, void* davdataptr, WIN32_FIND_DATAW *FindD
             if (p)
                 p[0] = 0;
             wcslcpy2(FindData->cFileName, namew, countof(FindData->cFileName)-1);
-        } else if (ConnectSettings->utf8names) {
-            ConvUTF8toUTF16(name, 0, FindData->cFileName, _countof(FindData->cFileName));
         } else {
-            awlcopyCP(ConnectSettings->codepage, FindData->cFileName, name, countof(FindData->cFileName)-1);
+            CopyStringA2W(ConnectSettings, name, FindData->cFileName, _countof(FindData->cFileName));
         }
         if (file.flags & LIBSSH2_SFTP_ATTR_PERMISSIONS) {
             if ((file.permissions & S_IFMT) == S_IFDIR || (attr & FILE_ATTRIBUTE_DIRECTORY) != 0)
@@ -3202,10 +3215,7 @@ int SftpCreateDirectoryW(void* serverid, WCHAR* Path)
     wcslcat(dirnamedisp, Path, countof(dirnamedisp)-1);
     ShowStatusW(dirnamedisp);
 
-    if (ConnectSettings->utf8names)
-        wcslcpytoutf8(dirname, Path, sizeof(dirname)-1);
-    else
-        walcopyCP(ConnectSettings->codepage, dirname, Path, sizeof(dirname)-1);
+    CopyStringW2A(ConnectSettings, Path, dirname, _countof(dirname));
     ReplaceBackslashBySlash(dirname);
 
     if (ConnectSettings->scponly) {
@@ -3281,15 +3291,9 @@ int SftpRenameMoveFileW(void* serverid, WCHAR* OldName, WCHAR* NewName, BOOL Mov
     if (!ConnectSettings)
         return SFTP_FAILED;
 
-    if (ConnectSettings->utf8names)
-        wcslcpytoutf8(OldName2, OldName, sizeof(OldName2)-1);
-    else
-        walcopyCP(ConnectSettings->codepage, OldName2, OldName, sizeof(OldName2)-1);
+    CopyStringW2A(ConnectSettings, OldName, OldName2, _countof(OldName2));
     ReplaceBackslashBySlash(OldName2);
-    if (ConnectSettings->utf8names)
-        wcslcpytoutf8(NewName2, NewName, sizeof(NewName2)-1);
-    else
-        walcopyCP(ConnectSettings->codepage, NewName2, NewName, sizeof(NewName2)-1);
+    CopyStringW2A(ConnectSettings, NewName, NewName2, _countof(NewName2));
     ReplaceBackslashBySlash(NewName2);
 
     if (!Overwrite) {
@@ -3540,10 +3544,7 @@ int SftpDownloadFileW(void* serverid, WCHAR* RemoteName, WCHAR* LocalName, BOOL 
     ReplaceBackslashBySlashW(msgbuf);
     ShowStatusW(msgbuf);
 
-    if (ConnectSettings->utf8names)
-        wcslcpytoutf8(filename, RemoteName, sizeof(filename)-1);
-    else
-        walcopyCP(ConnectSettings->codepage, filename, RemoteName, sizeof(filename)-1);
+    CopyStringW2A(ConnectSettings, RemoteName, filename, _countof(filename));
     ReplaceBackslashBySlash(filename);
     BOOL TextMode;
     TextMode = (ConnectSettings->unixlinebreaks == 1) && SftpDetermineTransferModeW(RemoteName);
@@ -3799,10 +3800,8 @@ int SftpUploadFileW(void* serverid, WCHAR* LocalName, WCHAR* RemoteName, BOOL Re
     if (!ConnectSettings)
         return SFTP_FAILED;
 
-    if (ConnectSettings->utf8names)
-        wcslcpytoutf8(thename, RemoteName, sizeof(thename)-1);
-    else {
-        walcopyCP(ConnectSettings->codepage, thename, RemoteName, sizeof(thename)-1);
+    CopyStringW2A(ConnectSettings, RemoteName, thename, _countof(thename));
+    if (ConnectSettings->utf8names == 0) {
         if (strchr(thename, '?')) {
             return SFTP_WRITEFAILED;  // invalid remote name
         }
@@ -4120,10 +4119,7 @@ int SftpDeleteFileW(void* serverid, WCHAR* RemoteName, BOOL isdir)
     if (!ConnectSettings)
         return SFTP_FAILED;
 
-    if (ConnectSettings->utf8names)
-        wcslcpytoutf8(dirname, RemoteName, sizeof(dirname)-1);
-    else
-        walcopyCP(ConnectSettings->codepage, dirname, RemoteName, sizeof(dirname)-1);
+    CopyStringW2A(ConnectSettings, RemoteName, dirname, _countof(dirname));
     ReplaceBackslashBySlash(dirname);
 
     if (strcmp(dirname, "/~") == 0)    // go to home dir special link
@@ -4205,10 +4201,7 @@ int SftpSetDateTimeW(void* serverid, WCHAR* RemoteName, FILETIME *LastWriteTime)
     WCHAR msgbuf[wdirtypemax];
     char filename[wdirtypemax];
 
-    if (ConnectSettings->utf8names)
-        wcslcpytoutf8(filename, RemoteName, sizeof(filename)-1);
-    else
-        walcopyCP(ConnectSettings->codepage, filename, RemoteName, sizeof(filename)-1);
+    CopyStringW2A(ConnectSettings, RemoteName, filename, _countof(filename));
     ReplaceBackslashBySlash(filename);
 
     wcslcpy(msgbuf,L"Set date/time for: ",countof(msgbuf)-1);
@@ -4277,10 +4270,7 @@ BOOL SftpChmodW(void* serverid, WCHAR* RemoteName, WCHAR* chmod)
     int rc = 0;
     WCHAR msgbuf[wdirtypemax];
     char filename[wdirtypemax];
-    if (ConnectSettings->utf8names)
-        wcslcpytoutf8(filename, RemoteName, sizeof(filename)-1);
-    else
-        walcopyCP(ConnectSettings->codepage, filename, RemoteName, sizeof(filename)-1);
+    CopyStringW2A(ConnectSettings, RemoteName, filename, _countof(filename));
     ReplaceBackslashBySlash(filename);
 
     wcslcpy(msgbuf, L"Set attributes for: ", countof(msgbuf)-1);
@@ -4332,10 +4322,7 @@ BOOL SftpLinkFolderTargetW(void* serverid, WCHAR* RemoteName, int maxlen)
     int rc = 0;
     WCHAR msgbuf[wdirtypemax];
     char filename[wdirtypemax];
-    if (ConnectSettings->utf8names)
-        wcslcpytoutf8(filename, RemoteName, sizeof(filename)-1);
-    else
-        walcopyCP(ConnectSettings->codepage, filename, RemoteName, sizeof(filename)-1);
+    CopyStringW2A(ConnectSettings, RemoteName, filename, _countof(filename));
     ReplaceBackslashBySlash(filename);
     BOOL needquotes = strchr(filename,' ')!=NULL || strchr(filename,'(')!=NULL || strchr(filename,')')!=NULL;
 
@@ -4361,10 +4348,7 @@ BOOL SftpLinkFolderTargetW(void* serverid, WCHAR* RemoteName, int maxlen)
             strlcpy(ReturnedName, "\\home\\", min(maxlen, wdirtypemax));
             strlcat(ReturnedName, ConnectSettings->user, min(maxlen, wdirtypemax));
         }
-        if (ConnectSettings->utf8names) {
-            ConvUTF8toUTF16(ReturnedName, 0, RemoteName, maxlen);
-        } else
-            awlcopyCP(ConnectSettings->codepage, RemoteName, ReturnedName, maxlen);
+        CopyStringA2W(ConnectSettings, ReturnedName, RemoteName, maxlen);
         return true;
     } else {
         char linktarget[wdirtypemax];
@@ -4444,10 +4428,7 @@ BOOL SftpLinkFolderTargetW(void* serverid, WCHAR* RemoteName, int maxlen)
         }
         if (linktarget[0]) {
             WCHAR linktargetW[wdirtypemax];
-            if (ConnectSettings->utf8names) {
-                ConvUTF8toUTF16(linktarget, 0, linktargetW, _countof(linktargetW));
-            } else
-                awlcopyCP(ConnectSettings->codepage, linktargetW, linktarget, wdirtypemax - 1);
+            CopyStringA2W(ConnectSettings, linktarget, linktargetW, _countof(linktargetW));
             ShowStatusW(L"Link target:");
             ShowStatusW(linktargetW);
             // handle the case of relative links!
@@ -4858,10 +4839,7 @@ int SftpQuoteCommand2W(void* serverid, WCHAR* remotedir, WCHAR* cmd, char* reply
     while (ReadChannelLine(channel, line, sizeof(line)-1, msgbuf, sizeof(msgbuf)-1, errbuf, sizeof(errbuf)-1)) {
         StripEscapeSequences(line);
         if (!reply) {
-            if (ConnectSettings->utf8names)
-                awlcopyCP(65001, wline, line, countof(wline)-1);
-            else
-                awlcopyCP(ConnectSettings->codepage, wline, line, countof(wline)-1);
+            CopyStringA2W(ConnectSettings, line, wline, countof(wline), false);
             ShowStatusW(wline);
         } else {
             if (reply[0])
@@ -4889,10 +4867,7 @@ int SftpQuoteCommand2W(void* serverid, WCHAR* remotedir, WCHAR* cmd, char* reply
                 while (p[0] == '\r' || p[0] == '\n')
                     p++;
             }
-            if (ConnectSettings->utf8names)
-                awlcopyCP(65001, wline, p, countof(wline)-1);
-            else
-                awlcopyCP(ConnectSettings->codepage, wline, p, countof(wline)-1);
+            CopyStringA2W(ConnectSettings, p, wline, countof(wline), false);
             ShowStatusW(wline);
             if (reply) {
                 if (reply[0])
@@ -5217,10 +5192,7 @@ void SftpShowPropertiesW(void* serverid, WCHAR* remotename)
     g_statreplyA = NULL;
     g_statreplyW = NULL;
     if (SftpQuoteCommand2W(serverid, NULL, cmdname, replyA, sizeof(replyA)-1) >= 0) {
-        if (ConnectSettings->utf8names) {
-            ConvUTF8toUTF16(replyA, 0, replyW, _countof(replyW));
-        } else
-            awlcopyCP(ConnectSettings->codepage, replyW, replyA, countof(replyW)-1);
+        CopyStringA2W(ConnectSettings, replyA, replyW, _countof(replyW));
         walcopy(replyA, replyW, sizeof(replyA)-1);
         g_command_ls = false;
         g_statreplyA = replyA;
@@ -5242,10 +5214,7 @@ void SftpShowPropertiesW(void* serverid, WCHAR* remotename)
         wcslcat(cmdname, replyW, wdirtypemax-1);
         if (SftpQuoteCommand2W(serverid, NULL, cmdname, replyA, sizeof(replyA)-1) >= 0) {
             g_command_ls = true;
-            if (ConnectSettings->utf8names) {
-                ConvUTF8toUTF16(replyA, 0, replyW, _countof(replyW));
-            } else
-                awlcopyCP(ConnectSettings->codepage, replyW, replyA, countof(replyW)-1);
+            CopyStringA2W(ConnectSettings, replyA, replyW, _countof(replyW));
             walcopy(replyA, replyW, sizeof(replyA)-1);
             g_statreplyA = replyA;
             g_statreplyW = replyW;
@@ -5353,10 +5322,7 @@ HANDLE SftpStartFileChecksumW(int ChecksumType, void* serverid, WCHAR* RemoteNam
 
     WCHAR msgbuf[wdirtypemax];
     char filename[wdirtypemax];
-    if (ConnectSettings->utf8names)
-        wcslcpytoutf8(filename, RemoteName, sizeof(filename)-1);
-    else
-        walcopyCP(ConnectSettings->codepage, filename, RemoteName, sizeof(filename)-1);
+    CopyStringW2A(ConnectSettings, RemoteName, filename, _countof(filename));
     ReplaceBackslashBySlash(filename);
 
     wcslcpy(msgbuf, L"Get ", countof(msgbuf)-1);
