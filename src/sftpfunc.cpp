@@ -122,11 +122,11 @@ BOOL EscapePressed()
 
 void strlcpyansitoutf8(char* utf8str, const char* ansistr, int maxlen)
 {
-    UTF16 utf16buf[1024];
-    UTF16* srcstart = utf16buf;
+    WCHAR utf16buf[1024];
+    UTF16* srcstart = (UTF16*)utf16buf;
     UTF8* trgstart = (unsigned char*)utf8str;
-    MultiByteToWideChar(CP_ACP, 0, ansistr, -1, (WCHAR*)&utf16buf, sizeof(utf16buf)/2);
-    ConvertUTF16toUTF8(&srcstart, (utf16buf + wcslen((WCHAR*)utf16buf) + 2), &trgstart, trgstart + maxlen - 1);
+    MultiByteToWideChar(CP_ACP, 0, ansistr, -1, utf16buf, sizeof(utf16buf)/2);
+    ConvertUTF16toUTF8(&srcstart, (const UTF16*)(utf16buf + wcslen(utf16buf) + 2), &trgstart, trgstart + maxlen - 1);
 }
 
 void wcslcpytoutf8(char* utf8str, WCHAR* utf16str, int maxlen)
