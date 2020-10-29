@@ -783,7 +783,7 @@ BOOL WINAPI FsRemoveDirW(WCHAR* RemoteName)
         WCHAR remotedir[wdirtypemax];
         SERVERID serverid = GetServerIdAndRelativePathFromPathW(RemoteName, remotedir, countof(remotedir)-1);
         if (serverid == NULL)
-            return FS_FILE_READERROR;
+            return false;
         pConnectSettings ConnectSettings = (pConnectSettings)serverid;
         if (ConnectSettings)
             ConnectSettings->lastpercent=0;
@@ -804,7 +804,7 @@ BOOL WINAPI FsSetAttr(char* RemoteName, int NewAttr)
     char remotedir[wdirtypemax];
     SERVERID serverid = GetServerIdAndRelativePathFromPath(RemoteName, remotedir, sizeof(remotedir)-1);
     if (serverid == NULL)
-        return FS_FILE_READERROR;
+        return false;
     
     pConnectSettings ConnectSettings = (pConnectSettings)serverid;
     if (ConnectSettings)
@@ -817,7 +817,7 @@ BOOL WINAPI FsSetTimeW(WCHAR* RemoteName, FILETIME *CreationTime, FILETIME *Last
     WCHAR remotedir[wdirtypemax];
     SERVERID serverid = GetServerIdAndRelativePathFromPathW(RemoteName, remotedir, countof(remotedir)-1);
     if (serverid == NULL)
-        return FS_FILE_READERROR;
+        return false;
 
     pConnectSettings ConnectSettings = (pConnectSettings)serverid;
     if (ConnectSettings)
