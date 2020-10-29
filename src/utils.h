@@ -72,6 +72,6 @@ bool IsNumericIPv6(LPCSTR addr);
 
 /* ======================== */
 
-bool MultiFileMatchW(LPCWSTR wild, LPWSTR name);
+bool MultiFileMatchW(LPCWSTR wild, LPCWSTR name);
 
 

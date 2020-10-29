@@ -100,6 +100,7 @@
     <ClInclude Include="ftpdir.h" />
     <ClInclude Include="multiserver.h" />
     <ClInclude Include="sftpfunc.h" />
+    <ClInclude Include="sftpplug.h" />
     <ClInclude Include="sshdynfunctions.h" />
     <ClInclude Include="utils.h" />
     <ClInclude Include="res\resource.h" />

@@ -378,7 +378,7 @@ static size_t countdots(LPCWSTR buf)
     return retval;
 }
 
-bool filematchw(LPWSTR swild, LPWSTR slbox)
+static bool filematchw(LPWSTR swild, LPCWSTR slbox)
 {
     WCHAR pattern[260];
     WCHAR buffer[260];
@@ -471,7 +471,7 @@ LPWSTR wcstok2(LPWSTR name)
     return p1 + 1;
 }
 
-bool MultiFileMatchW(LPCWSTR wild, LPWSTR name)
+bool MultiFileMatchW(LPCWSTR wild, LPCWSTR name)
 {
     WCHAR sincl[1024];
     bool io = false;
