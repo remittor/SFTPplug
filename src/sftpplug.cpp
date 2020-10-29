@@ -515,7 +515,7 @@ int WINAPI FsExecuteFileW(HWND MainWin, LPWSTR RemoteName, LPCWSTR Verb)
                 WCHAR remotedir[wdirtypemax];
                 SERVERID serverid = GetServerIdAndRelativePathFromPathW(RemoteName, remotedir, countof(remotedir)-1);
                 /* FIXME: check serverid with NULL */
-                if (SftpQuoteCommand2W(serverid, remotedir, Verb+6, NULL, 0))
+                if (SftpQuoteCommand2W(serverid, remotedir, Verb+6, NULL, 0) != 0)  /* FIXME: this function returned -1, 0, 1 */
                     return FS_EXEC_OK;
             }
         }
@@ -578,7 +578,7 @@ int WINAPI FsRenMovFileW(LPCWSTR OldName, LPCWSTR NewName, BOOL Move, BOOL OverW
     
     bool isdir = (ri->Attr & FILE_ATTRIBUTE_DIRECTORY) ? true : false;
 
-    int rc = SftpRenameMoveFileW(serverid1, olddir, newdir, Move, OverWrite, isdir);
+    int rc = SftpRenameMoveFileW(serverid1, olddir, newdir, !!Move, !!OverWrite, isdir);
     switch (rc) {
     case SFTP_OK:
         return FS_FILE_OK;
@@ -951,12 +951,12 @@ int WINAPI FsGetFileChecksumResultW(BOOL WantResult, HANDLE ChecksumHandle, LPCW
     if (serverid == NULL)
         return 0;
     ResetLastPercent(serverid);
-    return SftpGetFileChecksumResultW(WantResult, ChecksumHandle, serverid, checksum, maxlen);
+    return SftpGetFileChecksumResultW(!!WantResult, ChecksumHandle, serverid, checksum, maxlen);
 }
 
 int WINAPI FsGetFileChecksumResult(BOOL WantResult, HANDLE ChecksumHandle, LPCSTR RemoteName, LPSTR checksum, int maxlen)
 {
     WCHAR RemoteNameW[wdirtypemax];
-    return FsGetFileChecksumResultW(WantResult, ChecksumHandle, awfilenamecopy(RemoteNameW, RemoteName), checksum, maxlen);
+    return FsGetFileChecksumResultW(!!WantResult, ChecksumHandle, awfilenamecopy(RemoteNameW, RemoteName), checksum, maxlen);
 }
 
