@@ -4,6 +4,7 @@
 #include "libssh2.h"
 #include "libssh2_sftp.h"
 #include "libssh2_error.h"
+#include "multiserver.h"
 
 #define SFTP_OK          0
 #define SFTP_FAILED      1
@@ -38,18 +39,18 @@ typedef struct {
     LIBSSH2_SESSION *session;
     LIBSSH2_SFTP *sftpsession; 
     
-    BOOL useagent;
+    bool useagent;
     int protocoltype; // 0 = auto,  1 = IPv4,  2 = IPv6
     int servernamelen;
     unsigned short customport;
     int filemod;
     int dirmod;
-    BOOL scponly;
-    BOOL scpfordata;
-    BOOL dialogforconnection;
-    BOOL compressed;
-    BOOL detailedlog;
-    BOOL neednewchannel;   // kill the sftp channel in case of an error
+    bool scponly;
+    bool scpfordata;
+    bool dialogforconnection;
+    bool compressed;
+    bool detailedlog;
+    bool neednewchannel;   // kill the sftp channel in case of an error
     int findstarttime;     // time findfirstfile started, MUST be int
     char utf8names;        // 0=no, 1=yes, -1=auto-detect
     int codepage;          // only used when utf8names=0
@@ -62,41 +63,40 @@ typedef struct {
     DWORD lastpercenttime;
     int lastpercent;
     int passSaveMode;
-    BOOL InteractivePasswordSent;
+    bool InteractivePasswordSent;
     int trycustomlistcommand;  // set to 2 initially, reduce to 1 or 0 if failing
     int keepAliveIntervalSeconds; // 0 (disabled) by default
     HWND hWndKeepAlive;
     int scpserver64bit;     // 0=no, 1=yes, -1, auto-detect -> Support file upload/download > 2GB only if SCP on server side is 64bit!
                             // There might be 32bit SCP implementations with large file support but we cannot detect it. 
-    BOOL scpserver64bittemporary;  // true=user allowed transfers>2GB
+    bool scpserver64bittemporary;  // true=user allowed transfers>2GB
 } tConnectSettings, *pConnectSettings;
 
-void* SftpConnectToServer(char* DisplayName, char* inifilename, char* overridepass);
-void SftpGetServerBasePathW(WCHAR* DisplayName, WCHAR* RelativePath, int maxlen, char* inifilename);
-BOOL SftpConfigureServer(char* DisplayName, char* inifilename);
-int  SftpCloseConnection(void* serverid);
-int  SftpFindFirstFileW(void* serverid, WCHAR* remotedir, void** davdataptr);
-int  SftpFindNextFileW(LPVOID serverid, LPVOID davdataptr, LPWIN32_FIND_DATAW FindData) noexcept;
-int  SftpFindClose(void* serverid, void* davdataptr);
+SERVERID SftpConnectToServer(LPCSTR DisplayName, LPCSTR inifilename, LPCSTR overridepass);
+void SftpGetServerBasePathW(LPCWSTR DisplayName, LPWSTR RelativePath, size_t maxlen, LPCSTR inifilename);
+bool SftpConfigureServer(LPCSTR DisplayName, LPCSTR inifilename);
+int  SftpCloseConnection(SERVERID serverid);
+int  SftpFindFirstFileW(SERVERID serverid, LPCWSTR remotedir, LPVOID * davdataptr);
+int  SftpFindNextFileW(SERVERID serverid, LPVOID davdataptr, LPWIN32_FIND_DATAW FindData) noexcept;
+int  SftpFindClose(SERVERID serverid, LPVOID davdataptr);
 
-int  SftpCreateDirectoryW(void* serverid, WCHAR* Path);
-int  SftpRenameMoveFileW(void* serverid, WCHAR* OldName, WCHAR* NewName, BOOL Move, BOOL Overwrite, BOOL isdir);
-int  SftpDownloadFileW(void* serverid, WCHAR* RemoteName, WCHAR* LocalName, BOOL alwaysoverwrite, __int64 filesize, FILETIME *ft, BOOL Resume);
-int  SftpUploadFileW(void* serverid, LPCWSTR LocalName, WCHAR* RemoteName, BOOL Resume, BOOL setattr);
-int  SftpDeleteFileW(void* serverid, WCHAR* RemoteName, BOOL isdir);
-int  SftpSetAttr(void* serverid, char* RemoteName, int NewAttr);
-int  SftpSetDateTimeW(void* serverid, WCHAR* RemoteName, FILETIME *LastWriteTime);
-void SftpGetLastActivePathW(void* serverid, WCHAR* RelativePath, int maxlen);
-BOOL SftpDeleteBeforeUpload(void* serverid);
-BOOL SftpChmodW(void* serverid, WCHAR* RemoteName, LPCWSTR chmod);
-BOOL SftpLinkFolderTargetW(void* serverid, WCHAR* RemoteName, int maxlen);
-BOOL SftpQuoteCommand2(void* serverid, char* remotedir, char* cmd, char* reply, int replylen);
-BOOL SftpQuoteCommand2W(void* serverid, WCHAR* remotedir, LPCWSTR cmd, char* reply, int replylen);
-BOOL SftpQuoteCommand(void* serverid, char* remotedir, char* cmd);
-void SftpShowPropertiesW(void* serverid, WCHAR* remotename);
+int  SftpCreateDirectoryW(SERVERID serverid, LPCWSTR Path);
+int  SftpRenameMoveFileW(SERVERID serverid, LPCWSTR OldName, LPCWSTR NewName, bool Move, bool Overwrite, bool isdir);
+int  SftpDownloadFileW(SERVERID serverid, LPCWSTR RemoteName, LPCWSTR LocalName, bool alwaysoverwrite, INT64 filesize, LPFILETIME ft, bool Resume);
+int  SftpUploadFileW(SERVERID serverid, LPCWSTR LocalName, LPCWSTR RemoteName, bool Resume, bool setattr);
+int  SftpDeleteFileW(SERVERID serverid, LPCWSTR RemoteName, bool isdir);
+int  SftpSetAttr(SERVERID serverid, LPCSTR RemoteName, int NewAttr);
+int  SftpSetDateTimeW(SERVERID serverid, LPCWSTR RemoteName, LPFILETIME LastWriteTime);
+void SftpGetLastActivePathW(SERVERID serverid, LPWSTR RelativePath, size_t maxlen);
+bool SftpChmodW(SERVERID serverid, LPCWSTR RemoteName, LPCWSTR chmod);
+bool SftpLinkFolderTargetW(SERVERID serverid, LPWSTR RemoteName, size_t maxlen);
+int  SftpQuoteCommand2(SERVERID serverid, LPCSTR remotedir, LPCSTR cmd, LPSTR reply, size_t replylen);
+int  SftpQuoteCommand2W(SERVERID serverid, LPCWSTR remotedir, LPCWSTR cmd, LPSTR reply, size_t replylen);
+bool SftpQuoteCommand(SERVERID serverid, LPCSTR remotedir, LPCSTR cmd);
+void SftpShowPropertiesW(SERVERID serverid, LPCWSTR remotename);
 void SftpSetTransferModeW(LPCWSTR mode);
-BOOL SftpDetermineTransferModeW(LPCWSTR RemoteName);
-BOOL SftpSupportsResume(void* serverid);
-int  SftpServerSupportsChecksumsW(void* serverid, WCHAR* RemoteName);
-HANDLE SftpStartFileChecksumW(int ChecksumType, void* serverid, WCHAR* RemoteName);
-int  SftpGetFileChecksumResultW(BOOL WantResult, HANDLE ChecksumHandle, void* serverid, char* checksum, int maxlen);
+bool SftpDetermineTransferModeW(LPCWSTR RemoteName);
+bool SftpSupportsResume(SERVERID serverid);
+int  SftpServerSupportsChecksumsW(SERVERID serverid, LPCWSTR RemoteName);
+HANDLE SftpStartFileChecksumW(int ChecksumType, SERVERID serverid, LPCWSTR RemoteName);
+int SftpGetFileChecksumResultW(bool WantResult, HANDLE ChecksumHandle, SERVERID serverid, LPSTR checksum, size_t maxlen);
