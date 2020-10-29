@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <fcntl.h>
 #include "sftpfunc.h"
+#include "sftpplug.h"
 #include "fsplugin.h"
 #include "multiserver.h"
 #include "res/resource.h"
@@ -21,25 +22,12 @@
 #define myuint UINT
 #endif
 
-extern tProgressProc ProgressProc;
-extern tRequestProc RequestProc;
-extern tLogProc LogProc;
-extern tCryptProc CryptProc;
-extern HINSTANCE hinst;
-extern BOOL CryptCheckPass;
-extern BOOL UpdatePercentBar(void* serverid, int percent);
-extern char pluginname[];
-extern int CryptoNumber;
-
 BOOL serverfieldchangedbyuser = false;
 char Global_TransferMode = 'I';  //I=Binary,  A=Ansi,  X=Auto
 WCHAR Global_TextTypes[1024];
 char global_detectcrlf = 0;
 
 std::map<HWND, pConnectSettings> ghWndToConnectSettings;
-
-extern void ShowStatus(char* status);
-extern void ShowStatusW(WCHAR* status);
 
 // Will be initialized when loading the SSH DLL
 BOOL SSH_ScpNeedBlockingMode = true;  // Need to use blocking mode for SCP?
@@ -3064,7 +3052,7 @@ fin:
     return SFTP_OK;
 }
 
-BOOL SftpFindNextFileW(void* serverid, void* davdataptr, WIN32_FIND_DATAW *FindData)
+int SftpFindNextFileW(LPVOID serverid, LPVOID davdataptr, LPWIN32_FIND_DATAW FindData) noexcept
 {
     char name[512]; 
     WCHAR namew[MAX_PATH];
@@ -3467,14 +3455,14 @@ int ConvertCrToCrLf(char* data, int len, BOOL* pLastWasCr)
     return j;
 }
 
-BOOL SftpDetermineTransferModeW(WCHAR* RemoteName)  // true if text mode
+BOOL SftpDetermineTransferModeW(LPCWSTR RemoteName)  // true if text mode
 {
     if (Global_TransferMode == 'A')
         return true;
     else if (Global_TransferMode == 'I')
         return false;
     else {  // mode 'auto'
-        WCHAR* p = wcsrchr(RemoteName, '/');
+        LPCWSTR p = wcsrchr(RemoteName, '/');
         if (!p)
             p = wcsrchr(RemoteName, '\\');
         if (!p)
@@ -3788,7 +3776,7 @@ DWORD GetTextUploadResumePos(HANDLE localfile, DWORD resumepos)
     return 0xFFFFFFFF;
 }
 
-int SftpUploadFileW(void* serverid, WCHAR* LocalName, WCHAR* RemoteName, BOOL Resume, BOOL setattr)
+int SftpUploadFileW(void* serverid, LPCWSTR LocalName, WCHAR* RemoteName, BOOL Resume, BOOL setattr)
 {
     LIBSSH2_SFTP_HANDLE *remotefilesftp = NULL;
     LIBSSH2_CHANNEL *remotefilescp = NULL;
@@ -4261,7 +4249,7 @@ int SftpSetDateTimeW(void* serverid, WCHAR* RemoteName, FILETIME *LastWriteTime)
         return SFTP_OK;
 }
 
-BOOL SftpChmodW(void* serverid, WCHAR* RemoteName, WCHAR* chmod)
+BOOL SftpChmodW(void* serverid, WCHAR* RemoteName, LPCWSTR chmod)
 {
     pConnectSettings ConnectSettings = (pConnectSettings)serverid;
     if (!ConnectSettings)
@@ -4658,7 +4646,7 @@ BOOL ReadChannelLine(LIBSSH2_CHANNEL *channel, char *line, int linelen, char* ms
     return false;
 }
 
-void SftpSetTransferModeW(WCHAR* mode)
+void SftpSetTransferModeW(LPCWSTR mode)
 {
     Global_TransferMode = (size_t)CharUpperW((LPWSTR)mode[0]) & 0xFF;
     if (Global_TransferMode == 'X')
@@ -4772,7 +4760,7 @@ int SftpQuoteCommand2(void* serverid, char* remotedir, char* cmd, char* reply, i
 }
 
 // returns -1 for error, >=0 is the return value of the called function
-int SftpQuoteCommand2W(void* serverid, WCHAR* remotedir, WCHAR* cmd, char* reply, int replylen)
+int SftpQuoteCommand2W(void* serverid, WCHAR* remotedir, LPCWSTR cmd, char* reply, int replylen)
 {
     LIBSSH2_CHANNEL *channel = NULL;
 
