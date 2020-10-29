@@ -110,7 +110,9 @@
 #define FS_CHK_ERR_BUSY   -1           // Checksum calculation still active, try again
 #define FS_CHK_ERR_FAIL   -2           // Failed to get checksum
 
-#define FS_TIME_UNKNOWN  (UINT64)(-2LL)   // Use the following settings for files which don't have a time
+#define FS_TIME_UNKNOWN  (-2LL)        // Use the following settings for files which don't have a time
+
+#define FS_ATTR_UNIXMODE  0x80000000   // for Unix systems: set the dwReserved0 parameter to the Unix file mode (permissions).
 
 
 typedef struct {
@@ -126,7 +128,7 @@ typedef struct {
         INT64   iLastWriteTime;
     };
     DWORD Attr;
-} RemoteInfoStruct;
+} RemoteInfoStruct, *PRemoteInfoStruct;
 
 typedef struct {
     int   size;
@@ -136,14 +138,14 @@ typedef struct {
 } FsDefaultParamStruct;
 
 // callback functions
-typedef int  (WINAPI *tProgressProc)(int PluginNr, char* SourceName, char* TargetName, int PercentDone);
+typedef int  (WINAPI *tProgressProc)(int PluginNr, LPCSTR SourceName, LPCSTR TargetName, int PercentDone);
 typedef int  (WINAPI *tProgressProcW)(int PluginNr, LPCWSTR SourceName, LPCWSTR TargetName, int PercentDone);
-typedef void (WINAPI *tLogProc)(int PluginNr, int MsgType, char* LogString);
+typedef void (WINAPI *tLogProc)(int PluginNr, int MsgType, LPCSTR LogString);
 typedef void (WINAPI *tLogProcW)(int PluginNr, int MsgType, LPCWSTR LogString);
 
-typedef BOOL (WINAPI *tRequestProc)(int PluginNr, int RequestType, char* CustomTitle, char* CustomText, char* ReturnedText, int maxlen);
+typedef BOOL (WINAPI *tRequestProc)(int PluginNr, int RequestType, LPCSTR CustomTitle, LPCSTR CustomText, LPSTR ReturnedText, int maxlen);
 typedef BOOL (WINAPI *tRequestProcW)(int PluginNr, int RequestType, LPCWSTR CustomTitle, LPCWSTR CustomText, LPWSTR ReturnedText, int maxlen);
-typedef int  (WINAPI *tCryptProc)(int PluginNr, int CryptoNr, int Mode, char* ConnectionName, char* Password, int maxlen);
+typedef int  (WINAPI *tCryptProc)(int PluginNr, int CryptoNr, int Mode, LPCSTR ConnectionName, LPSTR Password, int maxlen);
 typedef int  (WINAPI *tCryptProcW)(int PluginNr, int CryptoNr, int Mode, LPCWSTR ConnectionName, LPWSTR Password, int maxlen);
 
 // Function prototypes
@@ -151,39 +153,46 @@ int  WINAPI FsInit(int PluginNr, tProgressProc pProgressProc, tLogProc pLogProc,
 int  WINAPI FsInitW(int PluginNr, tProgressProcW pProgressProcW, tLogProcW pLogProcW, tRequestProcW pRequestProcW);
 void WINAPI FsSetCryptCallback(tCryptProc pCryptProc, int CryptoNr, int Flags);
 void WINAPI FsSetCryptCallbackW(tCryptProcW pCryptProcW, int CryptoNr, int Flags);
-HANDLE WINAPI FsFindFirst(char* Path, WIN32_FIND_DATA *FindData);
-HANDLE WINAPI FsFindFirstW(WCHAR* Path, WIN32_FIND_DATAW *FindData);
+HANDLE WINAPI FsFindFirst(LPCSTR Path, LPWIN32_FIND_DATA FindData);
+HANDLE WINAPI FsFindFirstW(LPCWSTR Path, LPWIN32_FIND_DATAW FindData);
 
-BOOL WINAPI FsFindNext(HANDLE Hdl, WIN32_FIND_DATA *FindData);
-BOOL WINAPI FsFindNextW(HANDLE Hdl, WIN32_FIND_DATAW *FindData);
+BOOL WINAPI FsFindNext(HANDLE Hdl, LPWIN32_FIND_DATA FindData);
+BOOL WINAPI FsFindNextW(HANDLE Hdl, LPWIN32_FIND_DATAW FindData);
 int  WINAPI FsFindClose(HANDLE Hdl);
-BOOL WINAPI FsMkDir(char* Path);
-BOOL WINAPI FsMkDirW(WCHAR* Path);
-int  WINAPI FsExecuteFile(HWND MainWin, char* RemoteName, char* Verb);
-int  WINAPI FsExecuteFileW(HWND MainWin, WCHAR* RemoteName, WCHAR* Verb);
-int  WINAPI FsRenMovFile(char* OldName, char* NewName, BOOL Move,  BOOL OverWrite, RemoteInfoStruct* ri);
-int  WINAPI FsRenMovFileW(WCHAR* OldName, WCHAR* NewName, BOOL Move, BOOL OverWrite, RemoteInfoStruct* ri);
-int  WINAPI FsGetFile(char* RemoteName, char* LocalName, int CopyFlags, RemoteInfoStruct* ri);
+BOOL WINAPI FsMkDir(LPCSTR Path);
+BOOL WINAPI FsMkDirW(LPCWSTR Path);
+int  WINAPI FsExecuteFile(HWND MainWin, LPSTR RemoteName, LPCSTR Verb);
+int  WINAPI FsExecuteFileW(HWND MainWin, LPWSTR RemoteName, LPCWSTR Verb);
+int  WINAPI FsRenMovFile(LPCSTR OldName, LPCSTR NewName, BOOL Move,  BOOL OverWrite, RemoteInfoStruct * ri);
+int  WINAPI FsRenMovFileW(LPCWSTR OldName, LPCWSTR NewName, BOOL Move, BOOL OverWrite, RemoteInfoStruct * ri);
+int  WINAPI FsGetFile(LPCSTR RemoteName, LPSTR LocalName, int CopyFlags, RemoteInfoStruct * ri);
+int  WINAPI FsGetFileW(LPCWSTR RemoteName, LPWSTR LocalName, int CopyFlags, RemoteInfoStruct * ri);
+int  WINAPI FsPutFile(LPCSTR LocalName, LPCSTR RemoteName, int CopyFlags);
+int  WINAPI FsPutFileW(LPCWSTR LocalName, LPCWSTR RemoteName, int CopyFlags);
+BOOL WINAPI FsDeleteFile(LPCSTR RemoteName);
+BOOL WINAPI FsDeleteFileW(LPCWSTR RemoteName);
+BOOL WINAPI FsRemoveDir(LPCSTR RemoteName);
+BOOL WINAPI FsRemoveDirW(LPCWSTR RemoteName);
+BOOL WINAPI FsDisconnect(LPCSTR DisconnectRoot);
+BOOL WINAPI FsDisconnectW(LPCWSTR DisconnectRoot);
+BOOL WINAPI FsSetAttr(LPCSTR RemoteName, int NewAttr);
+BOOL WINAPI FsSetAttrW(LPCWSTR RemoteName, int NewAttr);
+BOOL WINAPI FsSetTime(LPCSTR RemoteName, LPFILETIME CreationTime, LPFILETIME LastAccessTime, LPFILETIME LastWriteTime);
+BOOL WINAPI FsSetTimeW(LPCWSTR RemoteName, LPFILETIME CreationTime, LPFILETIME LastAccessTime, LPFILETIME LastWriteTime);
+void WINAPI FsStatusInfo(LPCSTR RemoteDir, int InfoStartEnd, int InfoOperation);
+void WINAPI FsStatusInfoW(LPCWSTR RemoteDir, int InfoStartEnd, int InfoOperation);
+int  WINAPI FsExtractCustomIcon(LPCSTR RemoteName, int ExtractFlags, HICON * TheIcon);
+int  WINAPI FsExtractCustomIconW(LPCWSTR RemoteName, int ExtractFlags, HICON * TheIcon);
 
-int  WINAPI FsGetFileW(WCHAR* RemoteName, WCHAR* LocalName, int CopyFlags, RemoteInfoStruct* ri);
-int  WINAPI FsPutFile(char* LocalName, char* RemoteName, int CopyFlags);
-int  WINAPI FsPutFileW(WCHAR* LocalName, WCHAR* RemoteName, int CopyFlags);
-BOOL WINAPI FsDeleteFile(char* RemoteName);
-BOOL WINAPI FsDeleteFileW(WCHAR* RemoteName);
-BOOL WINAPI FsRemoveDir(char* RemoteName);
-BOOL WINAPI FsRemoveDirW(WCHAR* RemoteName);
-BOOL WINAPI FsDisconnect(char* DisconnectRoot);
-BOOL WINAPI FsDisconnectW(WCHAR* DisconnectRoot);
-BOOL WINAPI FsSetAttr(char* RemoteName, int NewAttr);
-BOOL WINAPI FsSetAttrW(WCHAR* RemoteName, int NewAttr);
-BOOL WINAPI FsSetTime(char* RemoteName, FILETIME *CreationTime, FILETIME *LastAccessTime, FILETIME *LastWriteTime);
-BOOL WINAPI FsSetTimeW(WCHAR* RemoteName, FILETIME *CreationTime, FILETIME *LastAccessTime, FILETIME *LastWriteTime);
-void WINAPI FsStatusInfo(char* RemoteDir, int InfoStartEnd, int InfoOperation);
-void WINAPI FsStatusInfoW(WCHAR* RemoteDir, int InfoStartEnd, int InfoOperation);
-void WINAPI FsGetDefRootName(char* DefRootName, int maxlen);
-int  WINAPI FsExtractCustomIcon(char* RemoteName, int ExtractFlags, HICON* TheIcon);
-int  WINAPI FsExtractCustomIconW(WCHAR* RemoteName, int ExtractFlags, HICON* TheIcon);
-void WINAPI FsSetDefaultParams(FsDefaultParamStruct* dps);
+void WINAPI FsGetDefRootName(LPSTR DefRootName, int maxlen);
+void WINAPI FsSetDefaultParams(FsDefaultParamStruct * dps);
+
+int  WINAPI FsServerSupportsChecksums(LPCSTR RemoteName);
+int  WINAPI FsServerSupportsChecksumsW(LPCWSTR RemoteName);
+HANDLE WINAPI FsStartFileChecksum(int ChecksumType, LPCSTR RemoteName);
+HANDLE WINAPI FsStartFileChecksumW(int ChecksumType, LPCWSTR RemoteName);
+int  WINAPI FsGetFileChecksumResult(BOOL WantResult, HANDLE ChecksumHandle, LPCSTR RemoteName, LPSTR checksum, int maxlen);
+int  WINAPI FsGetFileChecksumResultW(BOOL WantResult, HANDLE ChecksumHandle, LPCWSTR RemoteName, LPSTR checksum, int maxlen);
 
 int  WINAPI FsGetPreviewBitmap(char* RemoteName, int width, int height, HBITMAP* ReturnedBitmap);
 int  WINAPI FsGetPreviewBitmapW(WCHAR* RemoteName, int width, int height, HBITMAP* ReturnedBitmap);
