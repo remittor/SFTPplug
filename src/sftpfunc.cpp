@@ -511,9 +511,9 @@ static bool ismimechar(char ch)
              ch == '/' || ch == '+' || ch == '=' || ch == '\r' || ch == '\n');
 }
 
-bool ProgressLoop(LPCSTR progresstext, int start, int end, int * loopval, DWORD * lasttime)
+bool ProgressLoop(LPCSTR progresstext, int start, int end, int * loopval, SYSTICKS * lasttime)
 {
-    DWORD time = GetCurrentTime();
+    SYSTICKS time = get_sys_ticks();
     if (time - *lasttime > 100 || *loopval < start) {
         *lasttime = time;
         (*loopval)++;
@@ -595,7 +595,7 @@ static bool IsSocketReadable(SOCKET s)
     return (err == 1);
 }
 
-static int mysend(SOCKET s, LPCSTR buf, int len, int flags, LPCSTR progressmessage, int progressstart, int * ploop, DWORD * plasttime)
+static int mysend(SOCKET s, LPCSTR buf, int len, int flags, LPCSTR progressmessage, int progressstart, int * ploop, SYSTICKS * plasttime)
 {
     int err;
     int ret = SOCKET_ERROR;
@@ -614,7 +614,7 @@ static int mysend(SOCKET s, LPCSTR buf, int len, int flags, LPCSTR progressmessa
     return ret;
 }
 
-static int myrecv(SOCKET s, LPSTR buf, int len, int flags, LPCSTR progressmessage, int progressstart, int * ploop, DWORD * plasttime)
+static int myrecv(SOCKET s, LPSTR buf, int len, int flags, LPCSTR progressmessage, int progressstart, int * ploop, SYSTICKS * plasttime)
 {
     int err;
     int totallen = len;
@@ -702,7 +702,7 @@ int SftpConnect(pConnectSettings ConnectSettings)
     struct addrinfo hints, *res, *ai;
     bool connected = FALSE;
     int nsocks; int auth, loop;
-    DWORD lasttime = GetCurrentTime();
+    SYSTICKS lasttime = get_sys_ticks();
 
     if (!ConnectSettings->session) {
         if (ProgressProc(PluginNumber, "Connecting...", "-", 0))
@@ -1286,8 +1286,8 @@ int SftpConnect(pConnectSettings ConnectSettings)
                     HWND active = GetForegroundWindow();
                     ShellExecute(active, NULL, linkname, NULL, dirname, SW_SHOW);
                     Sleep(2000);
-                    DWORD starttime = GetCurrentTime();
-                    while (active != GetForegroundWindow() && labs(GetCurrentTime() - starttime) < 20000) {
+                    SYSTICKS starttime = get_sys_ticks();
+                    while (active != GetForegroundWindow() && get_ticks_between(starttime) < 20000) {  /* FIXME: magic number! */
                         Sleep(200);
                         if (ProgressLoop(buf, 65, 70, &loop, &lasttime))
                             break;
@@ -2804,16 +2804,16 @@ int SftpCloseConnection(SERVERID serverid)
     int rc;
     pConnectSettings ConnectSettings = (pConnectSettings)serverid;
     if (ConnectSettings) {
-        int starttime = (int)GetTickCount();
+        SYSTICKS starttime = get_sys_ticks();
         bool doabort = false;
         if (ConnectSettings->sftpsession) {
             do {
                 rc = libssh2_sftp_shutdown(ConnectSettings->sftpsession);
                 if (EscapePressed())
                     doabort = true;
-                if (doabort && (int)GetTickCount() - starttime > 2000)
+                if (doabort && get_ticks_between(starttime) > 2000)   /* FIXME: magic number! */
                     break;
-                if ((int)GetTickCount() - starttime > 5000)
+                if (get_ticks_between(starttime) > 5000)    /* FIXME: magic number! */
                     break;
                 if (rc == LIBSSH2_ERROR_EAGAIN)
                     IsSocketReadable(ConnectSettings->sock);  // sleep to avoid 100% CPU!
@@ -2825,9 +2825,9 @@ int SftpCloseConnection(SERVERID serverid)
                 rc = libssh2_session_disconnect(ConnectSettings->session, "Disconnect");
                 if (EscapePressed())
                     doabort = true;
-                if (doabort && (int)GetTickCount() - starttime > 2000)
+                if (doabort && get_ticks_between(starttime) > 2000)   /* FIXME: magic number! */
                     break;
-                if ((int)GetTickCount() - starttime > 5000)
+                if (get_ticks_between(starttime) > 5000)    /* FIXME: magic number! */
                     break;
                 if (rc == LIBSSH2_ERROR_EAGAIN)
                     IsSocketReadable(ConnectSettings->sock);  // sleep to avoid 100% CPU!
@@ -2855,13 +2855,13 @@ bool ReconnectSFTPChannelIfNeeded(pConnectSettings ConnectSettings)
         return true;   // not needed
     if (ConnectSettings->neednewchannel || ConnectSettings->sftpsession == NULL) {
         ConnectSettings->neednewchannel = false;
-        DWORD starttime = (int)GetTickCount();
+        SYSTICKS starttime = get_sys_ticks();
         int rc;
         int loop = 0;
         if (ConnectSettings->sftpsession) {
             do {
                 rc=libssh2_sftp_shutdown(ConnectSettings->sftpsession);
-            } while (rc == LIBSSH2_ERROR_EAGAIN && (int)GetTickCount() - (int)starttime < 2000);
+            } while (rc == LIBSSH2_ERROR_EAGAIN && get_ticks_between(starttime) < 2000);    /* FIXME: magic number! */
         }
 
         if (ConnectSettings->session)
@@ -2990,8 +2990,8 @@ int SftpFindFirstFileW(SERVERID serverid, LPCWSTR remotedir, LPVOID * davdataptr
         return SFTP_FAILED;
     
     /* Request a dir listing via SFTP */
-    ConnectSettings->findstarttime = (int)GetTickCount();
-    int aborttime = -1;
+    ConnectSettings->findstarttime = get_sys_ticks();
+    SYSTICKS aborttime = -1;
     int retrycount = 3;
     do {
         dirhandle = libssh2_sftp_opendir(ConnectSettings->sftpsession, dirname);
@@ -3015,12 +3015,12 @@ int SftpFindFirstFileW(SERVERID serverid, LPCWSTR remotedir, LPVOID * davdataptr
                 IsSocketReadable(ConnectSettings->sock);  // sleep to avoid 100% CPU!
         }
         Sleep(50);
-        int delta = (int)GetTickCount() - ConnectSettings->findstarttime;
-        if (delta > 2000 && aborttime == -1) {
+        int delta = get_ticks_between(ConnectSettings->findstarttime);
+        if (delta > 2000 && aborttime == -1) {          /* FIXME: magic numbers! */
             if (ProgressProc(PluginNumber, dirname, "temp", (delta / 200) % 100))
-                aborttime = GetTickCount() + 2000;  // give it 2 seconds to finish properly!
+                aborttime = get_sys_ticks() + 2000;  // give it 2 seconds to finish properly!   /* FIXME: magic number! */
         }
-        delta = (int)GetTickCount() - aborttime;
+        delta = get_ticks_between(aborttime);
         if (aborttime != -1 && delta > 0) {
             ConnectSettings->neednewchannel = true;
             break;
@@ -3062,7 +3062,7 @@ int SftpFindNextFileW(SERVERID serverid, LPVOID davdataptr, LPWIN32_FIND_DATAW F
     completeline[0] = 0;
     name[0] = 0;
     namew[0] = 0;
-    int aborttime = -1;
+    SYSTICKS aborttime = -1;
 
     if (ConnectSettings->scponly) {
         SCP_DATA* scpd = (SCP_DATA*)davdataptr;
@@ -3082,12 +3082,12 @@ int SftpFindNextFileW(SERVERID serverid, LPVOID davdataptr, LPWIN32_FIND_DATAW F
         }
     } else {
         while ((rc = libssh2_sftp_readdir_ex(dirhandle, name, sizeof(name), completeline, sizeof(completeline), &file)) == LIBSSH2_ERROR_EAGAIN) {
-            int delta = (int)GetTickCount() - ConnectSettings->findstarttime;
-            if (delta > 2000 && aborttime == -1) {
+            int delta = get_ticks_between(ConnectSettings->findstarttime);
+            if (delta > 2000 && aborttime == -1) {              /* FIXME: magic numbers! */
                 if (ProgressProc(PluginNumber, "dir", "temp", (delta / 200) % 100))
-                    aborttime = GetTickCount() + 2000;  // give it 2 seconds to finish properly!
+                    aborttime = get_sys_ticks() + 2000;  // give it 2 seconds to finish properly!  /* FIXME: magic number! */
             }
-            delta = (int)GetTickCount() - (int)aborttime;
+            delta = get_ticks_between(aborttime);
             if (aborttime != -1 && delta > 0) {
                 ConnectSettings->neednewchannel = true;
                 break;
@@ -3157,7 +3157,7 @@ int SftpFindClose(SERVERID serverid, LPVOID davdataptr)
     dirhandle = (LIBSSH2_SFTP_HANDLE*)davdataptr;
     if (!dirhandle)
         return SFTP_FAILED;
-    int aborttime = -1;
+    SYSTICKS aborttime = -1;
     if (ConnectSettings->scponly) {
         SCP_DATA* scpd = (SCP_DATA*)davdataptr;
         LIBSSH2_CHANNEL *channel = scpd->channel;
@@ -3165,12 +3165,12 @@ int SftpFindClose(SERVERID serverid, LPVOID davdataptr)
         return SFTP_OK;
     }
     while (LIBSSH2_ERROR_EAGAIN == libssh2_sftp_closedir(dirhandle)) {
-        int delta = (int)GetTickCount() - ConnectSettings->findstarttime;
-        if (delta > 2000 && aborttime == -1) {
+        int delta = get_ticks_between(ConnectSettings->findstarttime);
+        if (delta > 2000 && aborttime == -1) {         /* FIXME: magic numbers! */
             if (ProgressProc(PluginNumber, "close dir", "temp", (delta / 200) % 100))
-                aborttime = GetTickCount() + 2000;  // give it 2 seconds to finish properly!
+                aborttime = get_sys_ticks() + 2000;  // give it 2 seconds to finish properly!
         }
-        delta = (int)GetTickCount() - aborttime;
+        delta = get_ticks_between(aborttime);
         if (aborttime != -1 && delta > 0) {
             ConnectSettings->neednewchannel = true;
             break;
@@ -3213,17 +3213,17 @@ int SftpCreateDirectoryW(SERVERID serverid, LPCWSTR Path)
         return ok ? SFTP_OK : SFTP_FAILED;
     }
 
-    int starttime = (int)GetTickCount();
-    int aborttime = -1;
+    SYSTICKS starttime = get_sys_ticks();
+    SYSTICKS aborttime = -1;
     do {
         rc = libssh2_sftp_mkdir(ConnectSettings->sftpsession, dirname, ConnectSettings->dirmod);
         Sleep(50);
-        int delta = (int)GetTickCount() - starttime;
-        if (delta > 2000 && aborttime == -1) {
+        int delta = get_ticks_between(starttime);
+        if (delta > 2000 && aborttime == -1) {      /* FIXME: magic number! */
             if (EscapePressed())                // ProgressProc not working in this function!
-                aborttime = GetTickCount() + 2000;  // give it 2 seconds to finish properly!
+                aborttime = get_sys_ticks() + 2000;  // give it 2 seconds to finish properly!
         }
-        delta = (int)GetTickCount() - aborttime;
+        delta = get_ticks_between(aborttime);
         if (aborttime != -1 && delta > 0) {
             ConnectSettings->neednewchannel = true;
             break;
@@ -3382,14 +3382,14 @@ static int GetPercent(INT64 offset, INT64 filesize)
     return percent;
 }
 
-int CheckInputOrTimeout(SERVERID serverid, bool timeout, DWORD starttime, int percent)
+int CheckInputOrTimeout(SERVERID serverid, bool timeout, SYSTICKS starttime, int percent)
 {
     int retval = SFTP_OK;
     if (timeout) {
-        if (GetTickCount() - starttime > 5000 && UpdatePercentBar(serverid, percent)) {
+        if (get_ticks_between(starttime) > 5000 && UpdatePercentBar(serverid, percent)) {   /* FIXME: magic number!, UpdatePercentBar == FS_TASK_ABORTED */
             retval = SFTP_ABORT;
         }
-        if (GetTickCount() - starttime > 10000) {
+        if (get_ticks_between(starttime) > 10000) {
             retval = SFTP_FAILED;
         }
     } else if (EscapePressed()) {
@@ -3401,7 +3401,7 @@ int CheckInputOrTimeout(SERVERID serverid, bool timeout, DWORD starttime, int pe
 int CloseRemote(SERVERID serverid, LIBSSH2_SFTP_HANDLE * remotefilesftp, LIBSSH2_CHANNEL * remotefilescp, bool timeout, int percent)
 {
     int retval = SFTP_OK;
-    DWORD starttime = GetTickCount();
+    SYSTICKS starttime = get_sys_ticks();
     if (remotefilesftp) {
         while (LIBSSH2_ERROR_EAGAIN == libssh2_sftp_close(remotefilesftp)) {
             retval = CheckInputOrTimeout(serverid, timeout, starttime, percent);
@@ -3637,7 +3637,7 @@ int SftpDownloadFileW(SERVERID serverid, LPCWSTR RemoteName, LPCWSTR LocalName, 
     if (TextMode)
         maxblocksize /= 2;  // in worst case,  we have all line breaks (0A)
     int retval = SFTP_OK;
-    int aborttime = -1;
+    SYSTICKS aborttime = -1;
     do {
         if (scpdata) {
             if (scpremain <= 0)
@@ -3669,7 +3669,7 @@ int SftpDownloadFileW(SERVERID serverid, LPCWSTR RemoteName, LPCWSTR LocalName, 
         }
         // Always,  for aborting!
         if (UpdatePercentBar(serverid, GetPercent(sizeloaded, filesize))) {
-            aborttime = (int)GetTickCount() + 2000;  // give it 2 seconds to finish properly!
+            aborttime = get_sys_ticks() + 2000;  // give it 2 seconds to finish properly!    /* FIXME: magic number! */
             retval = SFTP_ABORT;
         }
         if (len == LIBSSH2_ERROR_EAGAIN) {
@@ -3684,7 +3684,7 @@ int SftpDownloadFileW(SERVERID serverid, LPCWSTR RemoteName, LPCWSTR LocalName, 
         }
         // if there is no data until the abort time is reached,  abort anyway
         // this can corrupt the sftp channel,  so discard it on the next read
-        int delta = (int)GetTickCount() - aborttime;
+        int delta = get_ticks_between(aborttime);
         if (aborttime != -1 && delta > 0) {
             ConnectSettings->neednewchannel = true;
             break;
@@ -3963,7 +3963,7 @@ int SftpUploadFileW(SERVERID serverid, LPCWSTR LocalName, LPCWSTR RemoteName, bo
                 libssh2_session_set_blocking(ConnectSettings->session, 1);
             }
 
-            DWORD starttime;
+            SYSTICKS starttime;
             DWORD len;
             retval = SFTP_OK;
             while (ReadFile(localfile, &data, sizeof(data), &len, NULL) && len > 0) {
@@ -4003,13 +4003,13 @@ int SftpUploadFileW(SERVERID serverid, LPCWSTR LocalName, LPCWSTR RemoteName, bo
 
                     if (UpdatePercentBar(serverid, GetPercent(sizeloaded, filesize))) {
                         // graceful abort if last reply was EAGAIN
-                        starttime = GetTickCount();
+                        starttime = get_sys_ticks();
                         while (written == LIBSSH2_ERROR_EAGAIN) {
                             if (scpdata)
                                 written = libssh2_channel_write(remotefilescp, pdata, len);
                             else
                                 written = libssh2_sftp_write(remotefilesftp, pdata, len);
-                            if (GetTickCount() - starttime > 5000)
+                            if (get_ticks_between(starttime) > 5000)   /* FIXME: magic number! */
                                 break;
                             IsSocketWritable(ConnectSettings->sock);  // sleep to avoid 100% CPU!
                         }
@@ -4130,20 +4130,20 @@ int SftpDeleteFileW(SERVERID serverid, LPCWSTR RemoteName, bool isdir)
         return ok ? SFTP_OK : SFTP_FAILED;
     }
 
-    int starttime = (int)GetTickCount();
-    int aborttime = -1;
+    SYSTICKS starttime = get_sys_ticks();
+    SYSTICKS aborttime = -1;
     do {
         if (isdir)
             rc = libssh2_sftp_rmdir(ConnectSettings->sftpsession, dirname);
         else
             rc = libssh2_sftp_unlink(ConnectSettings->sftpsession, dirname);
 
-        int delta = (int)GetTickCount() - starttime;
+        int delta = get_ticks_between(starttime);
         if (delta > 2000 && aborttime == -1) {
             if (ProgressProcT(PluginNumber, buf, L"delete", (delta / 200) % 100))
-                aborttime = GetTickCount() + 2000;  // give it 2 seconds to finish properly!
+                aborttime = get_sys_ticks() + 2000;   // give it 2 seconds to finish properly!  /* FIXME: magic number! */
         }
-        delta = (int)GetTickCount() - aborttime;
+        delta = get_ticks_between(aborttime);
         if (aborttime != -1 && delta > 0) {
             ConnectSettings->neednewchannel = true;
             break;
@@ -4471,11 +4471,11 @@ LIBSSH2_CHANNEL * ConnectChannel(LIBSSH2_SESSION * session)
     LIBSSH2_CHANNEL *channel;
     if (!session)
         return NULL;
-    int starttime = (int)GetTickCount();
+    SYSTICKS starttime = get_sys_ticks();
 
     do {
         channel = libssh2_channel_open_session(session);
-        if (abs((int)GetTickCount() - starttime) > 1000 && EscapePressed())
+        if (get_ticks_between(starttime) > 1000 && EscapePressed())    /* FIXME: magic number! */
             break;
     } while (!channel && libssh2_session_last_errno(session) == LIBSSH2_ERROR_EAGAIN);
 
@@ -4571,8 +4571,8 @@ static bool onlylinebreaks(LPSTR msgbuf)
 bool ReadChannelLine(LIBSSH2_CHANNEL * channel, LPSTR line, size_t linelen, LPSTR msgbuf, size_t msgbuflen, LPSTR errbuf, size_t errbuflen)
 {
     int rc, rcerr;
-    DWORD startdatatime = GetTickCount();
-    DWORD lastdatatime = startdatatime;
+    SYSTICKS startdatatime = get_sys_ticks();
+    SYSTICKS lastdatatime = startdatatime;
     bool endreceived = false;
     bool detectingcrlf = true;
     do {
@@ -4595,7 +4595,7 @@ bool ReadChannelLine(LIBSSH2_CHANNEL * channel, LPSTR line, size_t linelen, LPST
             remainerr -= rcerr;
         }
         if (rc >= 0 || prevlen > 0) {
-            lastdatatime = GetTickCount();
+            lastdatatime = get_sys_ticks();
             if (rc >= 0)
                 p[rc] = 0;
             char* p1;
@@ -4619,9 +4619,9 @@ bool ReadChannelLine(LIBSSH2_CHANNEL * channel, LPSTR line, size_t linelen, LPST
                 p1 = NULL;
         } else if (rc == LIBSSH2_ERROR_EAGAIN) {
             Sleep(50);
-            DWORD thisdatatime = GetTickCount();
+            SYSTICKS thisdatatime = get_sys_ticks();
             if (thisdatatime - lastdatatime < 1000 ||
-                thisdatatime - startdatatime < 5000)
+                thisdatatime - startdatatime < 5000)       /* FIXME: magic number! */
                 rc = 1;
         }
         if (endreceived && rc <= 0 && rc != LIBSSH2_ERROR_EAGAIN) {
@@ -4813,8 +4813,8 @@ int SftpQuoteCommand2W(SERVERID serverid, LPCWSTR remotedir, LPCWSTR cmd, LPSTR 
     char errbuf[2048];
     msgbuf[0] = 0;
     errbuf[0] = 0;
-    DWORD starttime = GetCurrentTime();
-    DWORD lasttime = starttime;
+    SYSTICKS starttime = get_sys_ticks();
+    SYSTICKS lasttime = starttime;
     int loop = 0;
     while (ReadChannelLine(channel, line, sizeof(line)-1, msgbuf, sizeof(msgbuf)-1, errbuf, sizeof(errbuf)-1)) {
         StripEscapeSequences(line);
@@ -4826,7 +4826,7 @@ int SftpQuoteCommand2W(SERVERID serverid, LPCWSTR remotedir, LPCWSTR cmd, LPSTR 
                 strlcat(reply, "\r\n", replylen);
             strlcat(reply, line, replylen);
         }
-        if (GetCurrentTime() - starttime > 2000)
+        if (get_ticks_between(starttime) > 2000)   /* FIXME: magic number! */
             if (ProgressLoop("QUOTE", 0, 100, &loop, &lasttime))
                 break;
     }

@@ -23,8 +23,24 @@ LPWSTR ReplaceSlashByBackslashW(LPWSTR thedir);
 
 /* Time functions */
 
+typedef INT64  SYSTICKS;
+
+SYSTICKS get_sys_ticks() noexcept;
+
 __forceinline
-void SetInt64ToFileTime(FILETIME * ft, INT64 tm)
+int get_ticks_between(SYSTICKS prev, SYSTICKS now)
+{
+    return (int)(now - prev);
+}
+
+__forceinline
+int get_ticks_between(SYSTICKS prev)
+{
+    return get_ticks_between(prev, get_sys_ticks());
+}
+
+__forceinline
+void SetInt64ToFileTime(FILETIME * ft, INT64 tm) noexcept
 {
     INT64 * p = (INT64 *)ft;
     *p = tm;

@@ -56,15 +56,16 @@ BOOL APIENTRY DllMain( HANDLE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
     return true;
 }
 
+/* FIXME: replace returnrd type to enum FS_TASK_CONTINUE / FS_TASK_ABORTED */
 static bool MessageLoop(SERVERID serverid) noexcept
 {
     bool aborted = false;
     pConnectSettings ConnectSettings = (pConnectSettings)serverid;
-    if (ConnectSettings && ProgressProc && labs(GetCurrentTime() - ConnectSettings->lastpercenttime) > 250) {
+    if (ConnectSettings && ProgressProc && get_ticks_between(ConnectSettings->lastpercenttime) > 250) {   /* FIXME: magic number! */
         // important: also call AFTER soft_aborted is true!!!
         aborted = (0 != ProgressProc(PluginNumber,  NULL,  NULL,  ConnectSettings->lastpercent));
         // allow abort with Escape when there is no progress dialog!
-        ConnectSettings->lastpercenttime = GetCurrentTime();
+        ConnectSettings->lastpercenttime = get_sys_ticks();
     }
     return aborted;
 }
@@ -80,6 +81,7 @@ void ShowStatusW(LPCWSTR status) noexcept
     LogProcT(PluginNumber, MSGTYPE_DETAILS, status);
 }
 
+/* FIXME: replace returnrd type to enum FS_TASK_CONTINUE / FS_TASK_ABORTED */
 bool UpdatePercentBar(SERVERID serverid, int percent) noexcept
 {
     pConnectSettings ConnectSettings = (pConnectSettings)serverid;

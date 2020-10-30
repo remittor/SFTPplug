@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include "utils.h"
 #include "fsplugin.h"
+#include <intrin.h>
 
 LPSTR strcatbackslash(LPSTR thedir)
 {
@@ -107,6 +108,42 @@ LPWSTR ReplaceSlashByBackslashW(LPWSTR thedir)
             *p = L'\\';
     }
     return thedir;
+}
+
+
+typedef UINT64 (WINAPI * tGetTickCount64) (void);
+tGetTickCount64  fnGetTickCount64 = NULL;
+bool g_sys_ticks_inited = false;
+LARGE_INTEGER g_sys_ticks_prev = {0};
+LONG g_sys_tick_lock = 0;
+
+SYSTICKS get_sys_ticks() noexcept
+{
+    if (!g_sys_ticks_inited) {
+        while (_InterlockedCompareExchange(&g_sys_tick_lock, 1, 0) == 1);
+        if (!g_sys_ticks_inited) {
+            HMODULE kernel32 = GetModuleHandleA("kernel32");
+            if (kernel32)
+                fnGetTickCount64 = (tGetTickCount64) GetProcAddress(kernel32, "GetTickCount64");
+            g_sys_ticks_inited = true;
+        }
+        _InterlockedExchange(&g_sys_tick_lock, 0);
+    }
+
+    if (fnGetTickCount64)
+        return (SYSTICKS)fnGetTickCount64();
+
+    const DWORD ticks = GetTickCount();
+    if (ticks < g_sys_ticks_prev.LowPart) {
+        while (_InterlockedCompareExchange(&g_sys_tick_lock, 1, 0) == 1);
+        if (ticks < g_sys_ticks_prev.LowPart) {
+            g_sys_ticks_prev.LowPart = ticks;
+            g_sys_ticks_prev.HighPart++;
+        }
+        _InterlockedExchange(&g_sys_tick_lock, 0);
+    }
+    g_sys_ticks_prev.LowPart = ticks;
+    return (SYSTICKS)g_sys_ticks_prev.QuadPart | ticks;
 }
 
 bool ConvSysTimeToFileTime(const LPSYSTEMTIME st, LPFILETIME ft)

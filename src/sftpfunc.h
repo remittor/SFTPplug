@@ -5,6 +5,7 @@
 #include "libssh2_sftp.h"
 #include "libssh2_error.h"
 #include "multiserver.h"
+#include "utils.h"
 
 #define SFTP_OK          0
 #define SFTP_FAILED      1
@@ -51,7 +52,7 @@ typedef struct {
     bool compressed;
     bool detailedlog;
     bool neednewchannel;   // kill the sftp channel in case of an error
-    int findstarttime;     // time findfirstfile started, MUST be int
+    SYSTICKS findstarttime; // time findfirstfile started, MUST be int
     char utf8names;        // 0=no, 1=yes, -1=auto-detect
     int codepage;          // only used when utf8names=0
     char unixlinebreaks;   // 0=no, 1=yes, -1=auto-detect
@@ -60,7 +61,7 @@ typedef struct {
     char proxyserver[MAX_PATH];
     char proxyuser[MAX_PATH];
     char proxypassword[MAX_PATH];
-    DWORD lastpercenttime;
+    SYSTICKS lastpercenttime;
     int lastpercent;
     int passSaveMode;
     bool InteractivePasswordSent;
