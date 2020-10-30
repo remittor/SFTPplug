@@ -21,11 +21,10 @@ char global_detectcrlf = 0;
 
 std::map<HWND, pConnectSettings> ghWndToConnectSettings;
 
-// Will be initialized when loading the SSH DLL
-bool SSH_ScpNeedBlockingMode = true;  // Need to use blocking mode for SCP?
-bool SSH_ScpNeedQuote = true;  // Need to use double quotes "" around names with spaces for SCP?
-bool SSH_ScpCanSendKeepAlive = false;
-bool SSH_ScpNo2GBLimit = false;
+const bool SSH_ScpNo2GBLimit = true;
+const bool SSH_ScpCanSendKeepAlive = true;
+const bool SSH_ScpNeedBlockingMode = false;   // Need to use blocking mode for SCP?
+const bool SSH_ScpNeedQuote = false;          // Need to use double quotes "" around names with spaces for SCP?
 
 VOID CALLBACK TimerProc(HWND hwnd, UINT uMsg, UINT_PTR idEvent, DWORD dwTime);
 
@@ -175,14 +174,6 @@ FARPROC GetProcAddressAgent(HMODULE hModule, LPCSTR lpProcName)
 #define FUNCDEF2(r, f, p) t##f f=NULL;
 #include "sshdynfunctions.h"
 
-// we need version 1.7.0 or later for SCP 64 bit SCP filetransfer
-#define LIBSSH2_VERSION_NUM_64BIT_FILETRANSFER_SCP 0x010206
-// we need version 1.2.5 or later for SCP keep alive option
-#define LIBSSH2_VERSION_NUM_CAN_SEND_KEEP_ALIVE_SCP 0x010205
-// we need version 1.2.1 or later for SCP mode working in async mode
-#define LIBSSH2_VERSION_NUM_ASYNC_SCP 0x010201
-// we need version 1.2.1 or later for SCP mode working without quotes "" for files with spaces in name
-#define LIBSSH2_VERSION_NUM_QUOTE_SCP 0x010100
 
 bool LoadSSHLib()
 {
@@ -356,11 +347,6 @@ bool LoadSSHLib()
         #define FUNCDEF(r, f, p) f=(t##f)GetProcAddress2(sshlib,  #f)
         #define FUNCDEF2(r, f, p) f=(t##f)GetProcAddressAgent(sshlib,  #f)
         #include "sshdynfunctions.h"
-
-        SSH_ScpNo2GBLimit = (libssh2_version != NULL && libssh2_version(LIBSSH2_VERSION_NUM_64BIT_FILETRANSFER_SCP) != NULL);
-        SSH_ScpCanSendKeepAlive = (libssh2_version != NULL && libssh2_version(LIBSSH2_VERSION_NUM_CAN_SEND_KEEP_ALIVE_SCP) != NULL);
-        SSH_ScpNeedBlockingMode = (libssh2_version == NULL || !libssh2_version(LIBSSH2_VERSION_NUM_ASYNC_SCP));
-        SSH_ScpNeedQuote = (libssh2_version == NULL || !libssh2_version(LIBSSH2_VERSION_NUM_QUOTE_SCP));
     }
     // initialize the Winsock calls too
     if (loadOK) {
