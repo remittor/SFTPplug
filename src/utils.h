@@ -1,27 +1,7 @@
 #pragma once
 
-#include <windows.h>
-#include <BaseTsd.h>
-#include <stdlib.h>
-#include <shlwapi.h>
+#include "global.h"
 
-#ifndef _LPCBYTE_DEFINED
-#define _LPCBYTE_DEFINED
-typedef const BYTE *LPCBYTE;
-#endif
-#ifndef _LPCVOID_DEFINED
-#define _LPCVOID_DEFINED
-typedef const VOID *LPCVOID;
-#endif
-
-
-#ifndef countof
-#define countof(array) (sizeof(array)/sizeof(array[0]))
-#endif
-
-#ifndef _itoa_s
-#define _itoa_s(nr,buf,sz,rdx)  _itoa((nr),(buf),(rdx))
-#endif
 
 /* String functions */
 
