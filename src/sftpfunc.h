@@ -1,5 +1,6 @@
 #pragma once
 
+#include "global.h"
 #include "libssh2_config.h"
 #include "libssh2.h"
 #include "libssh2_sftp.h"

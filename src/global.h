@@ -4,6 +4,9 @@
 #define _CRT_SECURE_NO_WARNINGS
 #define _CRT_NON_CONFORMING_SWPRINTFS
 
+/* Disable WinSock.h and wsock32.lib */
+#define _WINSOCKAPI_
+
 #include <windows.h>
 #include <BaseTsd.h>
 #include <stdlib.h>

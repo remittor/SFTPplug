@@ -1,4 +1,8 @@
+#include "global.h"
 #include <windows.h>
+#include <ws2tcpip.h>
+#include <shellapi.h>
+#include <commdlg.h>
 #include <stdio.h>
 #include <fcntl.h>
 #include "sftpfunc.h"
@@ -46,47 +50,6 @@ bool loadOK, loadAgent;
 
 void EncryptString(LPCTSTR pszPlain,  LPTSTR pszEncrypted,  UINT cchEncrypted);
 
-//****************** declarations for ipv6: ****************************/
-#define AF_INET6        23
-
-typedef struct addrinfo
-{
-    int                 ai_flags;       // AI_PASSIVE,  AI_CANONNAME,  AI_NUMERICHOST
-    int                 ai_family;      // PF_xxx
-    int                 ai_socktype;    // SOCK_xxx
-    int                 ai_protocol;    // 0 or IPPROTO_xxx for IPv4 and IPv6
-    size_t              ai_addrlen;     // Length of ai_addr
-    char *              ai_canonname;   // Canonical name for nodename
-    struct sockaddr *   ai_addr;        // Binary address
-    struct addrinfo *   ai_next;        // Next structure in linked list
-}
-ADDRINFOA,  *PADDRINFOA;
-
-typedef struct {
-    short   sin6_family;        /* AF_INET6 */
-    u_short sin6_port;          /* Transport level port number */
-    u_long  sin6_flowinfo;      /* IPv6 flow information */
-    u_char sin6_addr[16];       /* IPv6 address */
-    u_long sin6_scope_id;       /* set of interfaces for a scope */
-} sockaddr_in6, *psockaddr_in6;
-
-typedef ADDRINFOA       ADDRINFO,  FAR * LPADDRINFO;
-
-typedef  int (__stdcall* tgetaddrinfo)(IN const char FAR * nodename,
-                                    IN const char FAR * servname,
-                                    IN const struct addrinfo FAR * hints,
-                                    OUT struct addrinfo FAR * FAR * res);
-typedef int (__stdcall* tfreeaddrinfo)(IN  LPADDRINFO      pAddrInfo);
-typedef int (__stdcall* tWSAAddressToStringA)(
-    IN     LPSOCKADDR          lpsaAddress,
-    IN     DWORD               dwAddressLength,
-    IN     void*               lpProtocolInfo,
-    IN OUT LPSTR               lpszAddressString,
-    IN OUT LPDWORD             lpdwAddressStringLength);
-
-tgetaddrinfo getaddrinfo = NULL;
-tfreeaddrinfo freeaddrinfo = NULL;
-tWSAAddressToStringA WSAAddressToString = NULL;
 
 typedef struct {
     LIBSSH2_CHANNEL *channel;
@@ -347,36 +310,6 @@ bool LoadSSHLib()
         #define FUNCDEF(r, f, p) f=(t##f)GetProcAddress2(sshlib,  #f)
         #define FUNCDEF2(r, f, p) f=(t##f)GetProcAddressAgent(sshlib,  #f)
         #include "sshdynfunctions.h"
-    }
-    // initialize the Winsock calls too
-    if (loadOK) {
-        char ws2libname[MAX_PATH];
-        WSADATA wsadata;
-        WSAStartup(MAKEWORD( 2,  2 ), &wsadata);
-
-        // also load the getaddrinfo function
-        if (GetSystemDirectoryA(ws2libname, MAX_PATH)) {
-            strlcat(ws2libname,  "\\ws2_32", sizeof(ws2libname)-1);
-            HINSTANCE ws2lib = LoadLibraryA(ws2libname);
-            if (ws2lib) {
-                getaddrinfo = (tgetaddrinfo)GetProcAddress(ws2lib, "getaddrinfo");
-                freeaddrinfo = (tfreeaddrinfo)GetProcAddress(ws2lib, "freeaddrinfo");
-                WSAAddressToString=(tWSAAddressToStringA)GetProcAddress(ws2lib, "WSAAddressToStringA");
-                if (!getaddrinfo) {
-                    FreeLibrary(ws2lib);
-                    GetSystemDirectoryA(ws2libname,  MAX_PATH);
-                    strlcat(ws2libname, "\\wship6", sizeof(ws2libname)-1);
-                    ws2lib = LoadLibraryA(ws2libname);
-                    if (ws2lib) {
-                        getaddrinfo = (tgetaddrinfo)GetProcAddress(ws2lib, "getaddrinfo");
-                        freeaddrinfo = (tfreeaddrinfo)GetProcAddress(ws2lib, "freeaddrinfo");
-                        if (!getaddrinfo) {
-                            FreeLibrary(ws2lib);
-                        }
-                    }
-                }
-            }
-        }
     }
 
     return loadOK;
@@ -678,7 +611,6 @@ int SftpConnect(pConnectSettings ConnectSettings)
     unsigned long hostaddr;
     unsigned short connecttoport;
     char* p;
-    struct sockaddr_in sin;
     struct addrinfo hints, *res, *ai;
     bool connected = FALSE;
     int nsocks; int auth, loop;
@@ -715,40 +647,7 @@ int SftpConnect(pConnectSettings ConnectSettings)
         strlcat(buf, ConnectSettings->server, sizeof(buf)-1);
         ShowStatus(buf);
 
-        if (!getaddrinfo) {
-            hostaddr = inet_addr(connecttoserver);
-            if (hostaddr == INADDR_NONE) {
-                hostent* hostinfo;
-                hostinfo = (struct hostent *) gethostbyname(connecttoserver);
-                if (hostinfo)
-                    memcpy(&hostaddr, hostinfo->h_addr_list[0], 4);
-            }
-            ConnectSettings->sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-
-            sin.sin_family = AF_INET;
-            sin.sin_port = htons(connecttoport); //htons(22);
-            sin.sin_addr.s_addr = hostaddr; 
-
-            if (ConnectSettings->proxytype) {
-                LoadStr(buf, IDS_VIA_PROXY);
-                strlcat(buf, connecttoserver, sizeof(buf)-1);
-                ShowStatus(buf);
-            }
-            SetBlockingSocket(ConnectSettings->sock, false);
-            connected = connect(ConnectSettings->sock, (struct sockaddr*)(&sin), sizeof(struct sockaddr_in)) == 0;
-            if (!connected && WSAGetLastError() == WSAEWOULDBLOCK) {
-                while (true) {
-                    if (IsSocketWritable(ConnectSettings->sock)) {
-                        connected = true;
-                        break;
-                    }
-                    if (IsSocketError(ConnectSettings->sock))
-                        break;
-                    if (ProgressLoop(buf, 0, 20, &loop, &lasttime))
-                        break;
-                }
-            }
-        } else {
+        {
             // IPv6 code added by forum-user "Sob"
             memset(&hints, 0, sizeof(hints));
             switch (ConnectSettings->protocoltype) {
@@ -775,7 +674,7 @@ int SftpConnect(pConnectSettings ConnectSettings)
             for (nsocks = 0, ai = res; ai; ai = ai->ai_next, nsocks++) {
                 if(nsocks > 0) closesocket(ConnectSettings->sock);
                 ConnectSettings->sock = socket(ai->ai_family, ai->ai_socktype, ai->ai_protocol);
-                if (WSAAddressToString) {
+                {
                     len = (DWORD)sizeof(buf) - (DWORD)strlen(buf);
                     strlcpy(buf, "IP address: ", sizeof(buf)-1);
                     WSAAddressToString(ai->ai_addr, ai->ai_addrlen, NULL, buf + (DWORD)strlen(buf), (LPDWORD)&len);
@@ -798,8 +697,7 @@ int SftpConnect(pConnectSettings ConnectSettings)
                 if (connected)
                     break;
             }
-            if (freeaddrinfo)
-                freeaddrinfo(res);
+            freeaddrinfo(res);
         }
 
         if (!connected) {
@@ -995,7 +893,7 @@ int SftpConnect(pConnectSettings ConnectSettings)
                 nrbytes = 4 + 4;
             } else {
                 bool numipv6 = false;  // is it an IPv6 numeric address?
-                if (getaddrinfo && IsNumericIPv6(ConnectSettings->server)) {
+                if (IsNumericIPv6(ConnectSettings->server)) {
                     memset(&hints, 0, sizeof(hints));
                     hints.ai_family = AF_INET6;
                     hints.ai_socktype = SOCK_STREAM;
@@ -1007,7 +905,7 @@ int SftpConnect(pConnectSettings ConnectSettings)
                     if (getaddrinfo(ConnectSettings->server, buf, &hints, &res) == 0 && res->ai_addrlen>=sizeof(sockaddr_in6)) {
                         numipv6 = true;
                         buf[3] = 4; // IPv6
-                        memcpy(&buf[4], ((psockaddr_in6)(res->ai_addr))->sin6_addr, 16);
+                        memcpy(&buf[4], &((sockaddr_in6 *)res->ai_addr)->sin6_addr, 16);
                         nrbytes = 4 + 16;
                     }
                 }
