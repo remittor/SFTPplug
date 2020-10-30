@@ -46,6 +46,47 @@ void SetInt64ToFileTime(FILETIME * ft, INT64 tm) noexcept
     *p = tm;
 }
 
+__forceinline
+timeval gettimeval(size_t milliseconds)
+{
+    timeval ret;
+    ret.tv_sec = milliseconds / 1000;
+    ret.tv_usec = (milliseconds % 1000) * 1000;
+    return ret;
+}
+
+static const INT64 DELTA_EPOCH_IN_SECS = 11644473600LL;
+static const INT   SECS_TO_100NANOSECS = 10000000L;
+static const INT   WINDOWS_TICK = SECS_TO_100NANOSECS;
+
+__forceinline void ConvUnixTimeToFileTime(LPFILETIME ft, INT64 utm)
+{
+    SetInt64ToFileTime(ft, utm * WINDOWS_TICK + (DELTA_EPOCH_IN_SECS * WINDOWS_TICK));
+}
+
+__forceinline
+FILETIME GetFileTimeFromUnixTime(INT64 utm)
+{
+    FILETIME ret;
+    ConvUnixTimeToFileTime(&ret, utm);
+    return ret;
+}
+
+__forceinline
+INT64 GetUnixTime64(INT64 ms_time)
+{
+    return (ms_time - DELTA_EPOCH_IN_SECS * WINDOWS_TICK) / WINDOWS_TICK;
+} 
+
+__forceinline
+LONG GetUnixTime(const LPFILETIME ft)
+{
+    const INT64 ms_time = *(INT64 *)ft;
+    if (ms_time <= DELTA_EPOCH_IN_SECS * WINDOWS_TICK)
+        return 0;
+    return (LONG)(GetUnixTime64(ms_time) & 0xFFFFFFFF);
+}
+
 bool ConvSysTimeToFileTime(const LPSYSTEMTIME st, LPFILETIME ft);
 bool ConvertIsoDateToDateTime(LPCSTR pdatetimefield, LPFILETIME ft);
 bool CreateIsoDateString(LPFILETIME ft, LPSTR buf); //yyyymmddhhmmss

@@ -564,9 +564,7 @@ static void SetBlockingSocket(SOCKET s, bool blocking)
 static bool IsSocketError(SOCKET s)
 {
     fd_set fds;
-    timeval timeout;
-    timeout.tv_sec = 0;
-    timeout.tv_usec = 50000;
+    timeval timeout = gettimeval(50);   /* FIXME: magic number! */
     FD_ZERO(&fds);
     FD_SET(s, &fds);
     return 1 == select(0, NULL, NULL, &fds, &timeout);
@@ -575,9 +573,7 @@ static bool IsSocketError(SOCKET s)
 static bool IsSocketWritable(SOCKET s)
 {
     fd_set fds;
-    timeval timeout;
-    timeout.tv_sec = 0;
-    timeout.tv_usec = 50000;
+    timeval timeout = gettimeval(50);   /* FIXME: magic number! */
     FD_ZERO(&fds);
     FD_SET(s, &fds);
     return 1 == select(0, NULL, &fds, NULL, &timeout);
@@ -586,9 +582,7 @@ static bool IsSocketWritable(SOCKET s)
 static bool IsSocketReadable(SOCKET s)
 {
     fd_set fds;
-    timeval timeout;
-    timeout.tv_sec = 1;    // This is absolutely necessary, otherwise wingate local will not work!
-    timeout.tv_usec = 0;
+    timeval timeout = gettimeval(1000);  // This is absolutely necessary, otherwise wingate local will not work!  /* FIXME: magic number! */
     FD_ZERO(&fds);
     FD_SET(s, &fds);
     int err = select(0, &fds, NULL, NULL, &timeout);
@@ -3133,12 +3127,7 @@ int SftpFindNextFileW(SERVERID serverid, LPVOID davdataptr, LPWIN32_FIND_DATAW F
             if ((attr & FILE_ATTRIBUTE_DIRECTORY) != 0)
                 FindData->dwFileAttributes |= FILE_ATTRIBUTE_DIRECTORY;
         } else if (file.flags & LIBSSH2_SFTP_ATTR_ACMODTIME) {  
-            __int64 tm = 0x019DB1DE;
-            tm <<= 32;
-            tm |= 0xD53E8000;
-            tm += (__int64)10000000 * file.mtime;
-            FindData->ftLastWriteTime.dwLowDateTime = (DWORD)tm;
-            FindData->ftLastWriteTime.dwHighDateTime = (DWORD)(tm >> 32);
+            ConvUnixTimeToFileTime(&FindData->ftLastWriteTime, file.mtime);
         }
 
         if (file.flags & LIBSSH2_SFTP_ATTR_PERMISSIONS) {
@@ -3871,14 +3860,7 @@ int SftpUploadFileW(SERVERID serverid, LPCWSTR LocalName, LPCWSTR RemoteName, bo
             // when using SFTP commands, we can set the mode afterwards with the timestamp
             if (ConnectSettings->scponly && setattr) {
                 if (GetFileTime(localfile, NULL, NULL, &ft)) {
-                    __int64 tm2 = ft.dwHighDateTime;
-                    tm2 <<= 32;
-                    tm2 |= ft.dwLowDateTime;
-                    __int64 tm = 0x019DB1DE;
-                    tm <<= 32;
-                    tm |= 0xD53E8000;
-                    tm2 -= tm;
-                    mtime = (DWORD)(tm2 / (__int64)10000000);
+                    mtime = GetUnixTime(&ft);
                 }
             }
 
@@ -4043,14 +4025,7 @@ int SftpUploadFileW(SERVERID serverid, LPCWSTR LocalName, LPCWSTR RemoteName, bo
                 memset(&attr, 0, sizeof(attr));
                 attr.flags = LIBSSH2_SFTP_ATTR_ACMODTIME | (setattr ? LIBSSH2_SFTP_ATTR_PERMISSIONS : 0);
                 if (GetFileTime(localfile, NULL, NULL, &ft)) {
-                    __int64 tm2 = ft.dwHighDateTime;
-                    tm2 <<= 32;
-                    tm2 |= ft.dwLowDateTime;
-                    __int64 tm = 0x019DB1DE;
-                    tm <<= 32;
-                    tm |= 0xD53E8000;
-                    tm2 -= tm;
-                    attr.mtime = (DWORD)(tm2 / (__int64)10000000);
+                    attr.mtime = GetUnixTime(&ft);
                     attr.atime = attr.mtime;
                     if (setattr)
                         attr.permissions = ConnectSettings->filemod;
@@ -4217,14 +4192,7 @@ int SftpSetDateTimeW(SERVERID serverid, LPCWSTR RemoteName, LPFILETIME LastWrite
 
     LIBSSH2_SFTP_ATTRIBUTES attr;
     attr.flags = LIBSSH2_SFTP_ATTR_ACMODTIME;
-    __int64 tm2 = LastWriteTime->dwHighDateTime;
-    tm2 <<= 32;
-    tm2 |= LastWriteTime->dwLowDateTime;
-    __int64 tm = 0x019DB1DE;
-    tm <<= 32;
-    tm |= 0xD53E8000;
-    tm2 -= tm;
-    attr.mtime = (DWORD)(tm2 / (__int64)10000000);
+    attr.mtime = GetUnixTime(LastWriteTime);
     attr.atime = attr.mtime;
     do {
         rc = libssh2_sftp_setstat(ConnectSettings->sftpsession, filename, &attr);
