@@ -19,6 +19,26 @@
 extern int PluginNumber;
 extern char s_quickconnect[32];
 
+namespace sftp {
+
+enum class Proxy : int
+{
+    notused = 0,
+    default = 1,
+    http    = 2,
+    socks4  = 3,
+    socks5  = 4,
+};
+
+enum class PassSaveMode : int
+{
+    empty   = 0,   /* without password */
+    crypt   = 1,   /* use TotalCmd as password agent */
+    plain   = 2,   /* plaintext */
+};
+
+}
+
 struct scp_opendir_data {
     int TempPathUniqueValue;
     HANDLE tempfile;
@@ -58,13 +78,13 @@ typedef struct {
     int codepage;          // only used when utf8names=0
     char unixlinebreaks;   // 0=no, 1=yes, -1=auto-detect
     int proxynr;           // 0=no proxy, >0 use entry  [proxy], [proxy2] etc.
-    int proxytype;         // 0=no, 1=default, 2=custom
+    sftp::Proxy proxytype;
     char proxyserver[MAX_PATH];
     char proxyuser[MAX_PATH];
     char proxypassword[MAX_PATH];
     SYSTICKS lastpercenttime;
     int lastpercent;
-    int passSaveMode;
+    sftp::PassSaveMode passSaveMode;
     bool InteractivePasswordSent;
     int trycustomlistcommand;  // set to 2 initially, reduce to 1 or 0 if failing
     int keepAliveIntervalSeconds; // 0 (disabled) by default
