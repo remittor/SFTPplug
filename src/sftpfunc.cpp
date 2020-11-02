@@ -403,12 +403,6 @@ bool ProgressLoop(LPCSTR progresstext, int start, int end, int * loopval, SYSTIC
     return false;
 }
 
-static void ShowError(LPCSTR error)
-{
-    ShowStatus(error);  // log it
-    RequestProc(PluginNumber, RT_MsgOK, "SFTP Error", error, NULL, 0);
-}
-
 static void SftpLogLastError(LPCSTR errtext, int errnr)
 {
     char errbuf[128];
@@ -427,13 +421,48 @@ static void SftpLogLastError(LPCSTR errtext, int errnr)
     LogProc(PluginNumber, MSGTYPE_IMPORTANTERROR, errbuf);
 }
 
-static void ShowErrorId(int errorid)
+static void ShowMessageIdEx(int errorid, LPCSTR p1, int p2, bool silent)
 {
     char errorstr[256];
+    char fmt[256];
+    if (errorid < 0)
+        return;
     LoadStr(errorstr, errorid);
+    if (p1) {
+        strcpy(fmt, errorstr);
+        if (strstr(errorstr, "%s"))
+            sprintf_s(errorstr, countof(errorstr), fmt, p1);
+        else if (strstr(errorstr, "%d"))
+            sprintf_s(errorstr, countof(errorstr), fmt, p2);
+        else
+            strlcat(errorstr, p1, sizeof(errorstr)-1);
+    }
     ShowStatus(errorstr);  // log it
-    RequestProc(PluginNumber, RT_MsgOK, "SFTP Error", errorstr, NULL, 0);
+    if (!silent)
+        RequestProc(PluginNumber, RT_MsgOK, "SFTP Error", errorstr, NULL, 0);
 }
+
+static void ShowStatusId(int errorid, bool silent, int value)
+{
+    ShowMessageIdEx(errorid, "", value, silent);
+}
+
+static void ShowStatusId(int errorid, LPCSTR suffix, bool silent = true)
+{
+    ShowMessageIdEx(errorid, suffix, 0, silent);
+}
+
+static void ShowErrorId(int errorid, LPCSTR suffix = NULL)
+{
+    ShowMessageIdEx(errorid, NULL, 0, false);
+}
+
+static void ShowError(LPCSTR error)
+{
+    ShowStatus(error);  // log it
+    RequestProc(PluginNumber, RT_MsgOK, "SFTP Error", error, NULL, 0);
+}
+
 
 static void SetBlockingSocket(SOCKET s, bool blocking)
 {
@@ -547,1051 +576,1059 @@ void newpassfunc(LIBSSH2_SESSION * session, LPSTR * newpw, int * newpw_len, LPVO
     }
 }
 
+static int SftpConnectProxyHttp(pConnectSettings ConnectSettings, LPCSTR progressbuf, int progress, int * ploop, SYSTICKS * plasttime)
+{
+    char buf[1024];
+    // Send "CONNECT hostname:port HTTP/1.1"<CRLF>"Host: hostname:port"<2xCRLF> to the proxy
+    LPCSTR txt;
+    if (IsNumericIPv6(ConnectSettings->server))
+        txt = "CONNECT [%s]:%d HTTP/1.1\r\nHost: [%s]:%d\r\n";
+    else
+        txt = "CONNECT %s:%d HTTP/1.1\r\nHost: %s:%d\r\n";
+    sprintf_s(buf, sizeof(buf), txt, ConnectSettings->server, ConnectSettings->customport, ConnectSettings->server, ConnectSettings->customport);
+    if (ConnectSettings->proxyuser[0]) {
+        char buf1[250], buf2[500], title[250];
+        char passphrase[256];
+        strlcpy(passphrase, ConnectSettings->proxypassword, sizeof(passphrase)-1);
+
+        LoadStr(buf1, IDS_PROXY_PASSWORD_FOR);
+        strlcpy(title, buf1, sizeof(title)-1);
+        strlcat(title, ConnectSettings->proxyuser, sizeof(title)-1);
+        strlcat(title, "@", sizeof(title)-1);
+        strlcat(title, ConnectSettings->proxyserver, sizeof(title)-1);
+        LoadStr(buf1, IDS_PROXY_PASSWORD);
+        if (passphrase[0] == 0)
+            RequestProc(PluginNumber, RT_Password, title, buf1, passphrase, sizeof(passphrase)-1);
+
+        strlcpy(buf1, ConnectSettings->proxyuser, sizeof(buf1)-1);
+        strlcat(buf1, ":", sizeof(buf1)-1);
+        strlcat(buf1, passphrase, sizeof(buf1)-1);
+        strlcat(buf, "Proxy-Authorization: Basic ", sizeof(buf2)-1);
+        MimeEncode(buf1, buf2, sizeof(buf2)-1);
+        strlcat(buf, buf2, sizeof(buf)-1);
+        strlcat(buf, "\r\n", sizeof(buf)-1);
+    }
+    strlcat(buf, "\r\n", sizeof(buf)-1);
+    mysend(ConnectSettings->sock, buf, (int)strlen(buf), 0, progressbuf, progress, ploop, plasttime);
+    // Response;
+    // HTTP/1.0 200 Connection established
+    // Proxy-agent: WinProxy/1.5.3<2xCRLF>
+    bool lastcrlfcrlf = false;
+    int nrbytes = myrecv(ConnectSettings->sock, buf, 12, 0, progressbuf, progress, ploop, plasttime);
+    if (nrbytes == 12 && buf[9] == '2') {    // proxy signals success!!
+                                             // read data until we get 2xCRLF
+        bool lastcrlf = false;
+        bool lastcr = false;
+        while (1) {
+            nrbytes = myrecv(ConnectSettings->sock, buf, 1, 0, progressbuf, progress, ploop, plasttime);
+            if (nrbytes <= 0)
+                break;
+            if (buf[0] == '\r') {
+                lastcr = true;
+                continue;
+            }
+            if (buf[0] != '\n') {
+                lastcr = false;
+                lastcrlf = false;
+                continue;
+            }
+            if (!lastcr) {
+                lastcrlf = false;
+                continue;
+            }
+            if (!lastcrlf) {
+                lastcrlf = true;
+                continue;
+            }
+            lastcrlfcrlf = true;
+            break;
+        }
+    }
+    if (!lastcrlfcrlf) {
+        ShowErrorId(IDS_VIA_PROXY_CONNECT);
+        return -1;
+    }
+    return SFTP_OK;
+}
+
+static int SftpConnectProxySocks4(pConnectSettings ConnectSettings, LPCSTR progressbuf, int progress, int * ploop, SYSTICKS * plasttime)
+{
+    char buf[1024];
+    ZeroMemory(buf, sizeof(buf));
+    buf[0] = 4; // version        /* FIXME: use SOCKS packet struct */
+    buf[1] = 1; // TCP connect
+    *((PWORD)&buf[2]) = htons(ConnectSettings->customport);
+
+    // numerical IPv4 given?
+    ULONG hostaddr = inet_addr(ConnectSettings->server);
+    if (hostaddr == INADDR_NONE)
+        *((PLONG)&buf[4]) = htonl(0x00000001);     /* FIXME: magic number! */
+    else
+        *((PLONG)&buf[4]) = hostaddr;  // it's already in network order!
+    size_t nrbytes = 8;    /* FIXME: magic number! */
+    strlcpy(&buf[nrbytes], ConnectSettings->proxyuser, sizeof(buf) - nrbytes - 1);
+    nrbytes += strlen(ConnectSettings->proxyuser) + 1;
+    if (hostaddr == INADDR_NONE) {  // SOCKS4A
+        strlcpy(&buf[nrbytes], ConnectSettings->server, sizeof(buf) - nrbytes - 1);
+        nrbytes += strlen(ConnectSettings->server) + 1;
+    }
+    //
+    mysend(ConnectSettings->sock, buf, nrbytes, 0, progressbuf, progress, ploop, plasttime);
+    int rc = myrecv(ConnectSettings->sock, buf, 8, 0, progressbuf, progress, ploop, plasttime);
+    if (rc != 8 || buf[0] != 0 || buf[1] != 0x5a) {
+        ShowErrorId(IDS_VIA_PROXY_CONNECT);
+        return -1;
+    }
+    return SFTP_OK;
+}
+
+static int SftpConnectProxySocks5(pConnectSettings ConnectSettings, int connecttoport, LPCSTR progressbuf, int progress, int * ploop, SYSTICKS * plasttime)
+{
+    char buf[1024];
+    ZeroMemory(buf, sizeof(buf));
+    buf[0] = 5; // version       /* FIXME: use SOCKS packet struct */
+    buf[2] = 0; // no auth
+    int nrbytes = 3;
+    if (ConnectSettings->proxyuser[0]) {
+        buf[3] = 2; // user/pass auth
+        nrbytes++;
+    }
+    buf[1] = nrbytes - 2; // nr. of methods
+
+    mysend(ConnectSettings->sock, buf, nrbytes, 0, progressbuf, progress, ploop, plasttime);
+    nrbytes = myrecv(ConnectSettings->sock, buf, 2, 0, progressbuf, progress, ploop, plasttime);
+    if (!ConnectSettings->proxyuser[0] && buf[1] != 0) {
+        *((PBYTE)&buf[1]) = 0xff;
+    }
+    if (nrbytes != 2 || buf[0] != 5 || buf[1] == 0xff) {
+        ShowErrorId(IDS_VIA_PROXY_CONNECT);
+        return -1;
+    }
+    if (buf[1] == 2) { // user/pass auth
+        size_t len;
+        ZeroMemory(buf, sizeof(buf));
+        buf[0] = 1; // version
+        len = strlen(ConnectSettings->proxyuser);
+        buf[1] = len;
+        strlcpy(&buf[2], ConnectSettings->proxyuser, sizeof(buf)-3);
+        nrbytes = len + 2;
+        len = strlen(ConnectSettings->proxypassword);
+        buf[nrbytes] = len;
+        strlcpy(&buf[nrbytes+1], ConnectSettings->proxypassword, sizeof(buf) - nrbytes - 1);
+        nrbytes += len + 1;
+
+        mysend(ConnectSettings->sock, buf, nrbytes, 0, progressbuf, progress, ploop, plasttime);
+        nrbytes = myrecv(ConnectSettings->sock, buf, 2, 0, progressbuf, progress, ploop, plasttime);
+        if (nrbytes != 2 || buf[1] != 0) {
+            LoadStr(buf, IDS_SOCKS5PROXYERR);
+            ShowError(buf);
+            return -2;
+        }
+    }
+
+    ZeroMemory(buf,  sizeof(buf));
+    buf[0] = 5; // version         /* FIXME: use SOCKS packet struct */
+    buf[1] = 1; // TCP connect
+    buf[2] = 0; // reserved
+
+    ULONG hostaddr = inet_addr(ConnectSettings->server);
+    if (hostaddr != INADDR_NONE) {
+        buf[3] = 1; // addrtype (IPv4)
+        *((PLONG)&buf[4]) = hostaddr;  // it's already in network order!
+        nrbytes = 4 + 4;
+    } else {
+        bool numipv6 = false;  // is it an IPv6 numeric address?
+        if (IsNumericIPv6(ConnectSettings->server)) {
+            struct addrinfo hints;
+            memset(&hints, 0, sizeof(hints));
+            hints.ai_family = AF_INET6;
+            hints.ai_socktype = SOCK_STREAM;
+            sprintf_s(buf, sizeof(buf), "%d", connecttoport);
+            struct addrinfo * res = NULL;
+            if (getaddrinfo(ConnectSettings->server, buf, &hints, &res) == 0) {
+                if (res->ai_addrlen >= sizeof(sockaddr_in6)) {
+                    numipv6 = true;
+                    buf[3] = 4; // IPv6
+                    memcpy(&buf[4], &((sockaddr_in6 *)res->ai_addr)->sin6_addr, 16);
+                    nrbytes = 4 + 16;
+                }
+                freeaddrinfo(res);
+            }
+        }
+        if (!numipv6) {
+            buf[3] = 3; // addrtype (domainname)
+            buf[4] = (char)strlen(ConnectSettings->server);
+            strlcpy(&buf[5], ConnectSettings->server, sizeof(buf)-6);
+            nrbytes = (UCHAR)buf[4] + 5;
+        }
+    }
+    *((PWORD)&buf[nrbytes]) = htons(ConnectSettings->customport);
+    nrbytes += 2;
+
+    mysend(ConnectSettings->sock, buf, nrbytes, 0, progressbuf, progress, ploop, plasttime);
+    nrbytes = myrecv(ConnectSettings->sock, buf, 4, 0, progressbuf, progress, ploop, plasttime);
+    if (nrbytes != 4 || buf[0] != 5 || buf[1] != 0) {
+        //ShowErrorId(IDS_VIA_PROXY_CONNECT);
+        switch(buf[1]) {
+            case 1: LoadStr(buf, IDS_GENERALSOCKSFAILURE); break;
+            case 2: LoadStr(buf, IDS_CONNNOTALLOWED); break;
+            case 3: LoadStr(buf, IDS_NETUNREACHABLE); break;
+            case 4: LoadStr(buf, IDS_HOSTUNREACHABLE); break;
+            case 5: LoadStr(buf, IDS_CONNREFUSED); break;
+            case 6: LoadStr(buf, IDS_TTLEXPIRED); break;
+            case 7: LoadStr(buf, IDS_CMDNOTSUPPORTED); break;
+            case 8: LoadStr(buf, IDS_ADDRTYPENOTSUPPORTED); break;
+            default:
+            {
+                char buf2[MAX_PATH];
+                LoadStr(buf2, IDS_UNKNOWNSOCKERR);
+                sprintf_s(buf, sizeof(buf), buf2, buf[1]);
+            }
+        }
+        ShowError(buf);
+        return -3;
+    }
+    int needread = 0;
+    switch(buf[3]) {
+        case 1: 
+            needread = 6;   // IPv4+port
+            break;
+        case 3:
+            nrbytes = myrecv(ConnectSettings->sock, buf, 1, 0, progressbuf, progress, ploop, plasttime);
+            if (nrbytes == 1)
+                needread = buf[0] + 2;
+            break;    // Domain Name+port
+        case 4:
+            needread = 18;   // IPv6+port
+            break;
+    }
+    nrbytes = myrecv(ConnectSettings->sock, buf, needread, 0, progressbuf, progress, ploop, plasttime);
+    if (nrbytes != needread) {
+        ShowErrorId(IDS_VIA_PROXY_CONNECT);
+        return -4;
+    }
+    return SFTP_OK;
+}
+
+const int SSH_AUTH_PASSWORD = 0x01;
+const int SSH_AUTH_KEYBOARD = 0x02;
+const int SSH_AUTH_PUBKEY   = 0x04;
+
+static int SftpAuthPageant(pConnectSettings ConnectSettings, LPCSTR progressbuf, int progress, int * ploop, SYSTICKS * plasttime, int * auth_pw)
+{
+    int hr = -IDS_AGENT_AUTHFAILED;
+    char buf[1024];
+    struct libssh2_agent_publickey * identity = NULL;
+    struct libssh2_agent_publickey * prev_identity = NULL;
+
+    LIBSSH2_AGENT * agent = libssh2_agent_init(ConnectSettings->session);
+
+    if (!agent || libssh2_agent_connect(agent) != 0) {
+        if (agent) {
+            libssh2_agent_disconnect(agent);
+            libssh2_agent_free(agent);
+            agent = NULL;
+        }
+        // Try to launch Pageant!
+        char linkname[MAX_PATH], dirname[MAX_PATH];
+        dirname[0] = 0;
+        GetModuleFileName(hinst, dirname, sizeof(dirname)-10);
+        char* p = strrchr(dirname, '\\');
+        p = p ? p + 1 : dirname;
+        p[0] = 0;
+        strlcpy(linkname, dirname, MAX_PATH-1);
+        strlcat(linkname, "pageant.lnk", MAX_PATH-1);
+        if (GetFileAttributesA(linkname) == INVALID_FILE_ATTRIBUTES)
+            FIN(-IDS_AGENT_CONNECTERROR);
+
+        HWND active = GetForegroundWindow();
+        ShellExecute(active, NULL, linkname, NULL, dirname, SW_SHOW);
+        Sleep(2000);
+        SYSTICKS starttime = get_sys_ticks();
+        while (active != GetForegroundWindow() && get_ticks_between(starttime) < 20000) {  /* FIXME: magic number! */
+            Sleep(200);
+            if (ProgressLoop(progressbuf, progress, progress + 5, ploop, plasttime))
+                break;
+        }
+        agent = libssh2_agent_init(ConnectSettings->session);
+        FIN_IF(!agent, -IDS_AGENT_CONNECTERROR);
+        int rc = libssh2_agent_connect(agent);
+        FIN_IF(rc, -IDS_AGENT_CONNECTERROR);
+    }
+
+    int rc = libssh2_agent_list_identities(agent);
+    FIN_IF(rc, -IDS_AGENT_REQUESTIDENTITIES);
+    while (1) {
+        int auth = libssh2_agent_get_identity(agent, &identity, prev_identity);
+        FIN_IF(auth == 1, -IDS_AGENT_AUTHFAILED);  /* pub key */
+        FIN_IF(auth < 0, -IDS_AGENT_NOIDENTITY);
+        char buf1[128];
+        LoadStr(buf1, IDS_AGENT_TRYING1);
+        strlcpy(buf, buf1, sizeof(buf)-1);
+        strlcat(buf, ConnectSettings->user, sizeof(buf)-1);
+        LoadStr(buf1, IDS_AGENT_TRYING2);
+        strlcat(buf, buf1, sizeof(buf)-1);
+        strlcat(buf, identity->comment, sizeof(buf)-1);
+        LoadStr(buf1, IDS_AGENT_TRYING3);
+        strlcat(buf, buf1, sizeof(buf)-1);
+        ShowStatus(buf);
+        while ((auth = libssh2_agent_userauth(agent, ConnectSettings->user, identity)) == LIBSSH2_ERROR_EAGAIN);
+        if (auth == LIBSSH2_ERROR_REQUIRE_KEYBOARD) {     /* FIXME: patch libssh2 */
+            *auth_pw = SSH_AUTH_KEYBOARD;
+            FIN(SSH_AUTH_KEYBOARD);
+        }
+        if (auth == LIBSSH2_ERROR_REQUIRE_PASSWORD) {   /* FIXME: patch libssh2 */
+            *auth_pw = SSH_AUTH_PASSWORD;
+            FIN(SSH_AUTH_PASSWORD);
+        }
+        FIN_IF(auth == 0, 0);   /* OK */
+        prev_identity = identity;
+    }
+
+    hr = -IDS_AGENT_AUTHFAILED;
+    
+fin:
+    if (hr < 0) {
+        ShowStatusId(-hr, NULL, true);
+    }
+    if (hr == 0) {
+        ShowStatusId(IDS_AGENT_AUTHSUCCEEDED, NULL, true);
+    }
+    if (agent) {
+        libssh2_agent_disconnect(agent);
+        libssh2_agent_free(agent);
+    }
+    return hr;
+}
+
+static int SftpAuthPubKey(pConnectSettings ConnectSettings, LPCSTR progressbuf, int progress, int * ploop, SYSTICKS * plasttime, int * auth_pw)
+{
+    int hr = -LIBSSH2_ERROR_FILE;
+    char buf[1024];
+    bool pubkeybad = false;
+    char filebuf[1024];
+    char passphrase[256];
+    char pubkeyfile[MAX_PATH], privkeyfile[MAX_PATH];
+    char* pubkeyfileptr = pubkeyfile;
+
+    strlcpy(pubkeyfile, ConnectSettings->pubkeyfile, sizeof(pubkeyfile)-1);
+    ReplaceSubString(pubkeyfile, "%USER%", ConnectSettings->user, sizeof(pubkeyfile)-1);
+    ReplaceEnvVars(pubkeyfile, sizeof(pubkeyfile)-1);
+    strlcpy(privkeyfile, ConnectSettings->privkeyfile, sizeof(privkeyfile)-1);
+    ReplaceSubString(privkeyfile, "%USER%", ConnectSettings->user, sizeof(privkeyfile)-1);
+    ReplaceEnvVars(privkeyfile, sizeof(privkeyfile)-1);
+
+    passphrase[0] = 0;
+    // verify that we have a valid public key file
+    DWORD dwShareMode = FILE_SHARE_READ | FILE_SHARE_WRITE;
+    DWORD dwFlags = FILE_ATTRIBUTE_NORMAL | FILE_FLAG_SEQUENTIAL_SCAN;    
+    HANDLE hf = CreateFileA(pubkeyfile, GENERIC_READ, dwShareMode, NULL, OPEN_EXISTING, dwFlags, NULL);
+    FIN_IF(!hf || hf == INVALID_HANDLE_VALUE, -IDS_ERR_LOAD_PUBKEY);
+    DWORD dataread = 0;
+    if (ReadFile(hf, &filebuf, 35, &dataread, NULL)) {
+        if (_strnicmp(filebuf, "ssh-", 4) != 0 && 
+            _strnicmp(filebuf, "ecdsa-", 6) != 0 &&
+            _strnicmp(filebuf, "-----BEGIN OPENSSH PRIVATE KEY-----", 35) != 0)
+        {
+            FIN(-IDS_ERR_PUBKEY_WRONG_FORMAT);
+        }
+    }
+    CloseHandle(hf);
+
+    // do not ask for the pass phrase if the key isn't encrypted!
+    hf = CreateFile(privkeyfile, GENERIC_READ, dwShareMode, NULL, OPEN_EXISTING, dwFlags, NULL);
+    FIN_IF(!hf || hf == INVALID_HANDLE_VALUE, IDS_ERR_LOAD_PRIVKEY);
+    dataread = 0;
+    bool isencrypted = true; 
+    if (ReadFile(hf, &filebuf, sizeof(filebuf)-32, &dataread, NULL)) {
+        filebuf[dataread] = 0;
+        LPSTR p = strchr(filebuf, '\n');
+        if (!p)
+            p = strchr(filebuf, '\r');
+        if (p) {
+            p++;
+            while (p[0] == '\r' || p[0] == '\n')
+                p++;
+            isencrypted = false;
+            // if there is something else than just MIME-encoded data, 
+            // then the key is encrypted -> we need a pass phrase
+            for (int i = 0; i < 32; i++)
+                if (!ismimechar(p[i]))
+                    isencrypted = true;
+            // new format -----BEGIN OPENSSH PRIVATE KEY-----
+            // check whether the encoded string contains bcrypt
+            if (!isencrypted) {
+                char* p2 = filebuf;
+                while (p2[0] == '\r' || p2[0] == '\n')
+                    p2++;
+                if (strncmp(p2, "-----BEGIN OPENSSH PRIVATE KEY-----", 35) == 0) {
+                    char outbuf[64];
+                    int len = MimeDecode(p, min(64, strlen(p)), outbuf, sizeof(outbuf));
+                    for (int i = 0; i < len - 6; i++) {
+                        if (outbuf[i] == 'b' && strncmp(outbuf + i, "bcrypt", 6) == 0) {
+                            isencrypted = true;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    CloseHandle(hf);
+    if (isencrypted) {
+        char title[250];
+        LoadStr(buf, IDS_PASSPHRASE);
+        strlcpy(title, buf, sizeof(title)-1);
+        strlcat(title, ConnectSettings->user, sizeof(title)-1);
+        strlcat(title, "@", sizeof(title)-1);
+        strlcat(title, ConnectSettings->server, sizeof(title)-1);
+        LoadStr(buf, IDS_KEYPASSPHRASE);
+        if (ConnectSettings->password[0] != 0) {
+            char* p = strstr(ConnectSettings->password, "\",\"");
+            size_t len = strlen(ConnectSettings->password);
+            if (p && ConnectSettings->password[0] == '"' && ConnectSettings->password[len-1] == '"') {
+                // two passwords -> use second one!
+                p[0] = 0;
+                strlcpy(passphrase, ConnectSettings->password + 1, sizeof(passphrase)-1);
+                p[0] = '"';
+            } else {
+                strlcpy(passphrase, ConnectSettings->password, sizeof(passphrase)-1);
+            }
+        } else {
+            RequestProc(PluginNumber, RT_Password, title, buf, passphrase, sizeof(passphrase)-1);
+        }
+    }
+
+    ShowStatusId(IDS_AUTH_PUBKEY_FOR, ConnectSettings->user, true);
+
+    if (strcmp(pubkeyfile, privkeyfile) == 0)
+        pubkeyfileptr = NULL;
+
+    LoadStr(buf, IDS_AUTH_PUBKEY);
+    pConnectSettings cs = ConnectSettings;
+    int auth;
+    while ((auth = libssh2_userauth_publickey_fromfile(cs->session, cs->user, pubkeyfileptr, privkeyfile, passphrase)) == LIBSSH2_ERROR_EAGAIN) {
+        if (ProgressLoop(buf, progress, progress + 10, ploop, plasttime))
+            break;
+        IsSocketReadable(ConnectSettings->sock);  // sleep to avoid 100% CPU!
+    }
+    if (auth == LIBSSH2_ERROR_REQUIRE_KEYBOARD) {
+        *auth_pw = SSH_AUTH_KEYBOARD;
+        FIN(SSH_AUTH_KEYBOARD);
+    }
+    if (auth == LIBSSH2_ERROR_REQUIRE_PASSWORD) {
+        *auth_pw = SSH_AUTH_PASSWORD;
+        FIN(SSH_AUTH_PASSWORD);
+    }
+    if (auth) {
+        SftpLogLastError("libssh2_userauth_publickey_fromfile: ", auth);
+        ShowErrorId(IDS_ERR_AUTH_PUBKEY);
+        return -IDS_ERR_AUTH_PUBKEY;
+    }
+    if (!ConnectSettings->password[0])
+        strlcpy(ConnectSettings->password, passphrase, sizeof(ConnectSettings->password)-1);
+
+fin:
+    if (hr < 0) {
+        if (hr == -IDS_ERR_LOAD_PUBKEY)
+            ShowStatusId(-hr, pubkeyfile, true);
+        else if (hr == -IDS_ERR_LOAD_PRIVKEY)
+            ShowStatusId(-hr, privkeyfile, true);
+        else
+            ShowStatusId(-hr, nullptr, true);
+        hr = -LIBSSH2_ERROR_FILE;
+    }
+    return hr;
+}
+
+static int SftpSessionDetectUtf8(pConnectSettings ConnectSettings)
+{
+    int hr = 0;
+    char cmdname[MAX_PATH];
+    char reply[8192];
+    strlcpy(cmdname, "echo $LC_ALL $LC_CTYPE $LANG", sizeof(cmdname)-1);
+    reply[0] = 0;
+    if (SftpQuoteCommand2(ConnectSettings, NULL, cmdname, reply, sizeof(reply)-1) == 0) {
+        _strupr_s(reply, sizeof(reply));
+        if (strstr(reply, "UTF-8")) {
+            FIN(1);    /* FIXME: magic number! */
+        }
+        strlcpy(cmdname, "locale", sizeof(cmdname)-1);
+        if (SftpQuoteCommand2(ConnectSettings, NULL, cmdname, reply, sizeof(reply)-1) == 0) {
+            _strupr_s(reply, sizeof(reply));
+            if (strstr(reply, "UTF-8"))
+                FIN(1);    /* FIXME: magic number! */
+        }
+    }
+    hr = 0;
+fin:
+    // store the result!
+    if (strcmp(ConnectSettings->DisplayName, s_quickconnect) != 0)
+        WritePrivateProfileString(ConnectSettings->DisplayName, "utf8", hr ? "1" : "0", ConnectSettings->IniFileName);
+    return hr;
+}
+
+static int SftpSessionDetectLineBreaks(pConnectSettings ConnectSettings)
+{
+    int hr = 0;
+    char cmdname[MAX_PATH];
+    char reply[8192];
+    strlcpy(cmdname, "echo $OSTYPE", sizeof(cmdname)-1);
+    reply[0] = 0;
+    if (SftpQuoteCommand2(ConnectSettings, NULL, cmdname, reply, sizeof(reply)-1) == 0) {
+        _strupr_s(reply, sizeof(reply));
+        if (strstr(reply, "LINUX") || strstr(reply, "UNIX") || strstr(reply, "AIX")) {
+            FIN(1);    /* FIXME: magic number! */
+        }
+        // look whether the returned data ends with LF or CRLF!
+        global_detectcrlf = -1;
+        strlcpy(cmdname, "ls -l", sizeof(cmdname)-1); // try to get some multi-line reply
+        if (SftpQuoteCommand2(ConnectSettings, NULL, cmdname, reply, sizeof(reply)-1) == 0) {
+            if (global_detectcrlf == 0)
+                FIN(1);
+        }
+    }
+    hr = 0;
+fin:
+    // store the result!
+    if (strcmp(ConnectSettings->DisplayName, s_quickconnect) !=0 )
+        WritePrivateProfileString(ConnectSettings->DisplayName, "unixlinebreaks", hr ? "1" : "0", ConnectSettings->IniFileName);
+    return hr;
+}
+
+static int SftpSessionSendCommand(pConnectSettings ConnectSettings, LPCSTR progressbuf, int progress, int * ploop, SYSTICKS * plasttime)
+{
+    char buf[1024];
+    strlcpy(buf, ConnectSettings->connectsendcommand, sizeof(buf)-1);
+    LIBSSH2_CHANNEL * channel = ConnectChannel(ConnectSettings->session);
+    /* FIXME: check channel for NULL */
+    SftpLogLastError("ConnectChannel: ", libssh2_session_last_errno(ConnectSettings->session));
+    if (ConnectSettings->sendcommandmode <= 1) {    /* FIXME: magic number */
+        if (SendChannelCommand(ConnectSettings->session, channel, ConnectSettings->connectsendcommand)) {
+            while (!libssh2_channel_eof(channel)) {
+                if (ProgressLoop(buf, progress, progress + 10, ploop, plasttime))
+                    break;
+                char databuf[1024], *p, *p2;
+                databuf[0] = 0;
+                if (0 < libssh2_channel_read_stderr(channel, databuf, sizeof(databuf)-1)) {
+                    p = databuf;
+                    while (p[0] > 0 && p[0] <= ' ')
+                        p++;
+                    if (p[0]) {
+                        p2 = p + strlen(p) - 1;
+                        while (p2[0] <= ' ' && p2 >= p) {
+                            p2[0] = 0;
+                            p2--;
+                        }
+                    }
+                    if (p[0])
+                        ShowStatus(databuf);
+                }
+                databuf[0] = 0;
+                if (libssh2_channel_eof(channel))
+                    break;
+                if (0 < libssh2_channel_read(channel, databuf, sizeof(databuf)-1)) {
+                    p = databuf;
+                    while (p[0] > 0 && p[0] <= ' ')
+                        p++;
+                    if (p[0]) {
+                        p2 = p + strlen(p) - 1;
+                        while (p2[0] <= ' ' && p2 >= p) {
+                            p2[0] = 0;
+                            p2--;
+                        }
+                    }
+                    if (p[0])
+                        ShowStatus(databuf);
+                }
+            }
+        }
+        if (ConnectSettings->sendcommandmode == 0)
+            DisconnectShell(channel);
+        return 0;
+    }
+    int rc = -1;
+    do {
+        rc = libssh2_channel_exec(channel, ConnectSettings->connectsendcommand);
+        if (rc < 0) {
+            if (rc == -1)
+                rc = libssh2_session_last_errno(ConnectSettings->session);
+            if (rc != LIBSSH2_ERROR_EAGAIN)
+                break;
+        }
+        if (EscapePressed())
+            break;
+    } while (rc < 0);
+
+    return 0;
+}
+
 int SftpConnect(pConnectSettings ConnectSettings)
 {
+    int hr = 0;
     if (!LoadSSHLib())
         return SFTP_FAILED;
     if (!loadAgent && ConnectSettings->useagent) {
         char buf[128], buf1[128];
         LoadStr(buf1, IDS_SSH2_TOO_OLD);
         sprintf_s(buf, countof(buf), buf1, LIBSSH2_VERSION);
-        MessageBox(GetActiveWindow(), buf, "Error", MB_ICONSTOP);
+        MessageBoxA(GetActiveWindow(), buf, "Error", MB_ICONSTOP);
         return SFTP_FAILED;
     }
     char buf[1024];
-    DWORD len;
     char connecttoserver[250];
-    unsigned long hostaddr;
+    char progressbuf[250];
+    char* errmsg;
+    int errmsg_len;
+
+    int progress = 0;
     unsigned short connecttoport;
-    char* p;
-    struct addrinfo hints, *res, *ai;
+    struct addrinfo hints;
     bool connected = false;
-    int nsocks;
     int auth, loop;
+    int err;
     SYSTICKS lasttime = get_sys_ticks();
 
-    if (!ConnectSettings->session) {
-        if (ProgressProc(PluginNumber, "Connecting...", "-", 0))
-            return -1;
+    if (ConnectSettings->session)
+        return SFTP_OK;
 
-        switch (ConnectSettings->proxytype) {
-        case sftp::Proxy::notused:
-            strlcpy(connecttoserver, ConnectSettings->server, sizeof(connecttoserver)-1);
-            connecttoport = ConnectSettings->customport;
+    if (ConnectSettings->sftpsession)
+        return -1;    /* fatal error */
+
+    if (ConnectSettings->sock)
+        return -2;    /* fatal error */
+
+    if (ProgressProc(PluginNumber, "Connecting...", "-", progress))
+        FIN(-9);
+
+    switch (ConnectSettings->proxytype) {
+    case sftp::Proxy::notused:
+        strlcpy(connecttoserver, ConnectSettings->server, sizeof(connecttoserver)-1);
+        connecttoport = ConnectSettings->customport;
+        break;
+    case sftp::Proxy::http: // HTTP connect
+        if (!ParseAddress(ConnectSettings->proxyserver, &connecttoserver[0], &connecttoport, 8080)) {
+            MessageBox(GetActiveWindow(), "Invalid proxy server address.", "SFTP Error", MB_ICONSTOP);
+            FIN(-11);
+        }
+        break;
+    case sftp::Proxy::socks4: // SOCKS4a
+    case sftp::Proxy::socks5: // SOCKS5
+        if (!ParseAddress(ConnectSettings->proxyserver, &connecttoserver[0],  &connecttoport, 1080)) {
+            MessageBox(GetActiveWindow(), "Invalid proxy server address.", "SFTP Error", MB_ICONSTOP);
+            FIN(-12);
+        }
+        break;
+    default:
+        MessageBox(GetActiveWindow(), "Function not supported yet!", "SFTP Error", MB_ICONSTOP);
+        FIN(-13);
+    }
+    ShowStatus(" ==  ==  ==  ==  ==  ==  ==  ==  ==  ==  ==  == ");
+    ShowStatusId(IDS_CONNECT_TO, ConnectSettings->server, true);
+
+    progress = 20;   /* FIXME: magic number! */
+    {
+        // IPv6 code added by forum-user "Sob"
+        memset(&hints, 0, sizeof(hints));
+        switch (ConnectSettings->protocoltype) {
+        case 1:
+            hints.ai_family = AF_INET;
             break;
-        case sftp::Proxy::http: // HTTP connect
-            if (!ParseAddress(ConnectSettings->proxyserver, &connecttoserver[0], &connecttoport, 8080)) {
-                MessageBox(GetActiveWindow(), "Invalid proxy server address.", "SFTP Error", MB_ICONSTOP);
-                return -1;
-            }
-            break;
-        case sftp::Proxy::socks4: // SOCKS4a
-        case sftp::Proxy::socks5: // SOCKS5
-            if(!ParseAddress(ConnectSettings->proxyserver, &connecttoserver[0],  &connecttoport, 1080)) {
-                MessageBox(GetActiveWindow(), "Invalid proxy server address.", "SFTP Error", MB_ICONSTOP);
-                return -1;
-            }
+        case 2:
+            hints.ai_family = AF_INET6;
             break;
         default:
-            MessageBox(GetActiveWindow(), "Function not supported yet!", "SFTP Error", MB_ICONSTOP);
-            return -1;
+            hints.ai_family = AF_UNSPEC;
+            break;
         }
-        ShowStatus(" ==  ==  ==  ==  ==  ==  ==  ==  ==  ==  ==  == ");
-        LoadStr(buf, IDS_CONNECT_TO);
-        strlcat(buf, ConnectSettings->server, sizeof(buf)-1);
-        ShowStatus(buf);
+        hints.ai_socktype = SOCK_STREAM;
+        sprintf_s(buf, sizeof(buf), "%d", connecttoport);
+        struct addrinfo * res = NULL;
+        if (getaddrinfo(connecttoserver, buf, &hints, &res) != 0) {
+            ShowErrorId(IDS_ERR_GETADDRINFO);
+            FIN(-20);
+        }
+        ConnectSettings->sock = INVALID_SOCKET;
+        for (struct addrinfo * ai = res; ai; ai = ai->ai_next) {
+            closesocket(ConnectSettings->sock);
+            ConnectSettings->sock = socket(ai->ai_family, ai->ai_socktype, ai->ai_protocol);
+            if (ConnectSettings->sock == INVALID_SOCKET)
+                continue;
+            DWORD len = (DWORD)(sizeof(buf) - strlen(buf));
+            strlcpy(buf, "IP address: ", sizeof(buf)-1);
+            WSAAddressToString(ai->ai_addr, ai->ai_addrlen, NULL, buf + strlen(buf), &len);
+            ShowStatus(buf);
 
-        {
-            // IPv6 code added by forum-user "Sob"
-            memset(&hints, 0, sizeof(hints));
-            switch (ConnectSettings->protocoltype) {
-            case 1:
-                hints.ai_family = AF_INET;
-                break;
-            case 2:
-                hints.ai_family = AF_INET6;
-                break;
-            default:
-                hints.ai_family = AF_UNSPEC;
-                break;
-            }
-            hints.ai_socktype = SOCK_STREAM;
-            sprintf_s(buf, sizeof(buf), "%d", connecttoport);
-            if (getaddrinfo(connecttoserver, buf, &hints, &res) != 0) {
-                ShowErrorId(IDS_ERR_GETADDRINFO);
-                return -1;
-            }
-            for (nsocks = 0, ai = res; ai; ai = ai->ai_next, nsocks++) {
-                if(nsocks > 0) closesocket(ConnectSettings->sock);
-                ConnectSettings->sock = socket(ai->ai_family, ai->ai_socktype, ai->ai_protocol);
-                {
-                    len = (DWORD)sizeof(buf) - (DWORD)strlen(buf);
-                    strlcpy(buf, "IP address: ", sizeof(buf)-1);
-                    WSAAddressToString(ai->ai_addr, ai->ai_addrlen, NULL, buf + (DWORD)strlen(buf), (LPDWORD)&len);
-                    ShowStatus(buf);
-                }
-                SetBlockingSocket(ConnectSettings->sock, false);
-                connected = connect(ConnectSettings->sock, ai->ai_addr, (int)ai->ai_addrlen) == 0;
-                if (!connected && WSAGetLastError() == WSAEWOULDBLOCK) {
-                    while (true) {
-                        if (IsSocketWritable(ConnectSettings->sock)) {
-                            connected = true;
-                            break;
-                        }
-                        if (IsSocketError(ConnectSettings->sock))
-                            break;
-                        if (ProgressLoop(buf, 0, 20, &loop, &lasttime))
-                            break;
+            SetBlockingSocket(ConnectSettings->sock, false);
+            connected = connect(ConnectSettings->sock, ai->ai_addr, (int)ai->ai_addrlen) == 0;
+            if (!connected && WSAGetLastError() == WSAEWOULDBLOCK) {
+                while (true) {
+                    if (IsSocketWritable(ConnectSettings->sock)) {
+                        connected = true;
+                        break;
                     }
+                    if (IsSocketError(ConnectSettings->sock))
+                        break;
+                    if (ProgressLoop(buf, 0, progress, &loop, &lasttime))
+                        break;
                 }
-                if (connected)
-                    break;
             }
-            freeaddrinfo(res);
+            if (connected)
+                break;
         }
+        freeaddrinfo(res);
+    }
 
-        if (!connected) {
-            if (ConnectSettings->proxytype != sftp::Proxy::notused)
-                ShowErrorId(IDS_ERR_PROXYCONNECT);
-            else
-                ShowErrorId(IDS_ERR_SERVERCONNECT);
-            return -1;
-        }
+    if (!connected) {
+        if (ConnectSettings->proxytype != sftp::Proxy::notused)
+            ShowErrorId(IDS_ERR_PROXYCONNECT);
+        else
+            ShowErrorId(IDS_ERR_SERVERCONNECT);
+        FIN(-30);
+    }
 
-        // **********************************************************
-        //  Proxy?
-        bool lastcrlfcrlf;
-        char progressbuf[250];
+    // **********************************************************
+    //  Proxy?
+    if (ConnectSettings->proxytype != sftp::Proxy::notused) {
+        progress = 20;   /* FIXME: magic number! */
         LoadStr(progressbuf, IDS_PROXY_CONNECT);
-        int nrbytes, err;
+        if (ProgressProc(PluginNumber, progressbuf, "-", progress))
+            FIN(-40);
+        hr = 0;
         switch (ConnectSettings->proxytype) {
         case sftp::Proxy::http: // HTTP CONNECT
-            if (ProgressProc(PluginNumber, progressbuf, "-", 20)) {
-                closesocket(ConnectSettings->sock);
-                ConnectSettings->sock = 0;
-                return -1;
-            }
-            // Send "CONNECT hostname:port HTTP/1.1"<CRLF>"Host: hostname:port"<2xCRLF> to the proxy
-            LPCSTR txt;
-            if (IsNumericIPv6(ConnectSettings->server))
-                txt = "CONNECT [%s]:%d HTTP/1.1\r\nHost: [%s]:%d\r\n";
-            else
-                txt = "CONNECT %s:%d HTTP/1.1\r\nHost: %s:%d\r\n";
-            sprintf_s(buf, sizeof(buf), txt, ConnectSettings->server, ConnectSettings->customport, ConnectSettings->server, ConnectSettings->customport);
-            if (ConnectSettings->proxyuser[0]) {
-                char buf1[250], buf2[500], title[250];
-                char passphrase[256];
-                strlcpy(passphrase, ConnectSettings->proxypassword, sizeof(passphrase)-1);
-            
-                LoadStr(buf1, IDS_PROXY_PASSWORD_FOR);
-                strlcpy(title, buf1, sizeof(title)-1);
-                strlcat(title, ConnectSettings->proxyuser, sizeof(title)-1);
-                strlcat(title, "@", sizeof(title)-1);
-                strlcat(title, ConnectSettings->proxyserver, sizeof(title)-1);
-                LoadStr(buf1, IDS_PROXY_PASSWORD);
-                if (passphrase[0] == 0)
-                    RequestProc(PluginNumber, RT_Password, title, buf1, passphrase, sizeof(passphrase)-1);
-
-                strlcpy(buf1, ConnectSettings->proxyuser, sizeof(buf1)-1);
-                strlcat(buf1, ":", sizeof(buf1)-1);
-                strlcat(buf1, passphrase, sizeof(buf1)-1);
-                strlcat(buf, "Proxy-Authorization: Basic ", sizeof(buf2)-1);
-                MimeEncode(buf1, buf2, sizeof(buf2)-1);
-                strlcat(buf, buf2, sizeof(buf)-1);
-                strlcat(buf, "\r\n", sizeof(buf)-1);
-            }
-            strlcat(buf, "\r\n", sizeof(buf)-1);
-            mysend(ConnectSettings->sock, buf, (int)strlen(buf), 0, progressbuf, 20, &loop, &lasttime);
-            // Response;
-            // HTTP/1.0 200 Connection established
-            // Proxy-agent: WinProxy/1.5.3<2xCRLF>
-            lastcrlfcrlf = false;
-            nrbytes = myrecv(ConnectSettings->sock, buf, 12, 0, progressbuf, 20, &loop, &lasttime);
-            if (nrbytes == 12 && buf[9] == '2') {    // proxy signals success!!
-                // read data until we get 2xCRLF
-                bool lastcrlf = false;
-                bool lastcr = false;
-                while (1) {
-                    nrbytes = myrecv(ConnectSettings->sock, buf, 1, 0, progressbuf, 20, &loop, &lasttime);
-                    if (nrbytes <= 0)
-                        break;
-                    if (buf[0] == '\r')
-                        lastcr = true;
-                    else if (buf[0] == '\n') {
-                        if (lastcr) {
-                            if (lastcrlf) {
-                                lastcrlfcrlf = true;
-                                break;
-                            } else
-                                lastcrlf = true;
-                        } else
-                            lastcrlf = false;
-                    } else {
-                        lastcr = false;
-                        lastcrlf = false;
-                    }
-                }
-            }
-            if (!lastcrlfcrlf) {
-                ShowErrorId(IDS_VIA_PROXY_CONNECT);
-                closesocket(ConnectSettings->sock);
-                ConnectSettings->sock = 0;
-                return -1;
-            }
+            hr = SftpConnectProxyHttp(ConnectSettings, progressbuf, progress, &loop, &lasttime);
+            FIN_IF(hr, -12040 - hr);
             break;
-        case sftp::Proxy::socks4: // SOCKS4/4A
-            if (ProgressProc(PluginNumber, progressbuf, "-", 20)) {
-                closesocket(ConnectSettings->sock);
-                ConnectSettings->sock = 0;
-                return -1;
-            }
-            ZeroMemory(buf, sizeof(buf));
-            buf[0] = 4; //version
-            buf[1] = 1; //TCP connect
-            *((unsigned short *)&buf[2]) = htons(ConnectSettings->customport);
-
-            // numerical IPv4 given?
-            hostaddr = inet_addr(ConnectSettings->server);
-            if (hostaddr == INADDR_NONE)
-                *((unsigned long *)&buf[4]) = htonl(0x00000001);
-            else
-                *((unsigned long *)&buf[4]) = hostaddr;  // it's already in network order!
-            nrbytes = 8;
-            strlcpy(&buf[nrbytes], ConnectSettings->proxyuser, sizeof(buf)-nrbytes-1);
-            nrbytes += (int)strlen(ConnectSettings->proxyuser) + 1;
-            if (hostaddr == INADDR_NONE) {  // SOCKS4A
-                strlcpy(&buf[nrbytes], ConnectSettings->server, sizeof(buf)-nrbytes-1);
-                nrbytes += (int)strlen(ConnectSettings->server) + 1;
-            }
-            //
-            mysend(ConnectSettings->sock, buf, nrbytes, 0, progressbuf, 20, &loop, &lasttime);
-            nrbytes=myrecv(ConnectSettings->sock, buf, 8, 0, progressbuf, 20, &loop, &lasttime);
-            if (nrbytes != 8 || buf[0] != 0 || buf[1] != 0x5a) {
-                ShowErrorId(IDS_VIA_PROXY_CONNECT);
-                closesocket(ConnectSettings->sock);
-                ConnectSettings->sock = 0;
-                return -1;
-            }
+        case sftp::Proxy::socks4: // SOCKS4 / SOCKS4A
+            hr = SftpConnectProxySocks4(ConnectSettings, progressbuf, progress, &loop, &lasttime);
+            FIN_IF(hr, -13040 - hr);
             break;
         case sftp::Proxy::socks5:  // SOCKS5
-            if (ProgressProc(PluginNumber, progressbuf, "-", 20)) {
-                closesocket(ConnectSettings->sock);
-                ConnectSettings->sock = 0;
-                return -1;
-            }
-            ZeroMemory(buf, sizeof(buf));
-            buf[0] = 5; // version
-            buf[2] = 0; // no auth
-            nrbytes = 3;
-            if (ConnectSettings->proxyuser[0]) {
-                buf[3] = 2; // user/pass auth
-                nrbytes++;
-            }
-            buf[1] = nrbytes - 2; // nr. of methods
-            //
-            mysend(ConnectSettings->sock, buf, nrbytes, 0, progressbuf, 20, &loop, &lasttime);
-            nrbytes = myrecv(ConnectSettings->sock, buf, 2, 0, progressbuf, 20, &loop, &lasttime);
-            if (!ConnectSettings->proxyuser[0] && buf[1] != 0) {
-                *((unsigned char *)&buf[1]) = 0xff;
-            }
-            if (nrbytes != 2 || buf[0] != 5 || buf[1] == 0xff) {
-                ShowErrorId(IDS_VIA_PROXY_CONNECT);
-                closesocket(ConnectSettings->sock);
-                ConnectSettings->sock = 0;
-                return -1;
-            }
-            //
-            if (buf[1] == 2) { // user/pass auth
-                int len;
-                ZeroMemory(buf, sizeof(buf));
-                buf[0] = 1; // version
-                len = (int)strlen(ConnectSettings->proxyuser);
-                buf[1] = len;
-                strlcpy(&buf[2], ConnectSettings->proxyuser, sizeof(buf)-3);
-                nrbytes = len + 2;
-                len = (int)strlen(ConnectSettings->proxypassword);
-                buf[nrbytes] = len;
-                strlcpy(&buf[nrbytes+1],  ConnectSettings->proxypassword,  sizeof(buf)-nrbytes-1);
-                nrbytes += len + 1;
-                //
-                mysend(ConnectSettings->sock, buf, nrbytes, 0, progressbuf, 20, &loop, &lasttime);
-                nrbytes = myrecv(ConnectSettings->sock, buf, 2, 0, progressbuf, 20, &loop, &lasttime);
-                if (nrbytes != 2 || buf[1] != 0) {
-                    LoadStr(buf, IDS_SOCKS5PROXYERR);
-                    ShowError(buf);
-                    closesocket(ConnectSettings->sock);
-                    ConnectSettings->sock = 0;
-                    return -1;
-                }
-            }
-            //
-            ZeroMemory(buf,  sizeof(buf));
-            buf[0] = 5; // version
-            buf[1] = 1; // TCP connect
-            buf[2] = 0; // reserved
-
-            hostaddr = inet_addr(ConnectSettings->server);
-            if (hostaddr != INADDR_NONE) {
-                buf[3] = 1; // addrtype (IPv4)
-                *((unsigned long *)&buf[4]) = hostaddr;  // it's already in network order!
-                nrbytes = 4 + 4;
-            } else {
-                bool numipv6 = false;  // is it an IPv6 numeric address?
-                if (IsNumericIPv6(ConnectSettings->server)) {
-                    memset(&hints, 0, sizeof(hints));
-                    hints.ai_family = AF_INET6;
-                    hints.ai_socktype = SOCK_STREAM;
-                    sprintf_s(buf, sizeof(buf), "%d", connecttoport);
-                    if (getaddrinfo(ConnectSettings->server, buf, &hints, &res) == 0 && res->ai_addrlen>=sizeof(sockaddr_in6)) {
-                        numipv6 = true;
-                        buf[3] = 4; // IPv6
-                        memcpy(&buf[4], &((sockaddr_in6 *)res->ai_addr)->sin6_addr, 16);
-                        nrbytes = 4 + 16;
-                    }
-                }
-                if (!numipv6) {
-                    buf[3] = 3; // addrtype (domainname)
-                    buf[4] = (char)strlen(ConnectSettings->server);
-                    strlcpy(&buf[5], ConnectSettings->server, sizeof(buf)-6);
-                    nrbytes = (unsigned char)buf[4] + 5;
-                }
-            }
-            *((unsigned short *)&buf[nrbytes]) = htons(ConnectSettings->customport);
-            nrbytes += 2;
-            //
-            mysend(ConnectSettings->sock, buf, nrbytes, 0, progressbuf, 20, &loop, &lasttime);
-            nrbytes = myrecv(ConnectSettings->sock, buf, 4, 0, progressbuf, 20, &loop, &lasttime);
-            if (nrbytes != 4 || buf[0] != 5 || buf[1] != 0) {
-                //ShowErrorId(IDS_VIA_PROXY_CONNECT);
-                switch(buf[1]) {
-                case 1: LoadStr(buf, IDS_GENERALSOCKSFAILURE); break;
-                case 2: LoadStr(buf, IDS_CONNNOTALLOWED); break;
-                case 3: LoadStr(buf, IDS_NETUNREACHABLE); break;
-                case 4: LoadStr(buf, IDS_HOSTUNREACHABLE); break;
-                case 5: LoadStr(buf, IDS_CONNREFUSED); break;
-                case 6: LoadStr(buf, IDS_TTLEXPIRED); break;
-                case 7: LoadStr(buf, IDS_CMDNOTSUPPORTED); break;
-                case 8: LoadStr(buf, IDS_ADDRTYPENOTSUPPORTED); break;
-                default:
-                    {
-                        char buf2[MAX_PATH];
-                        LoadStr(buf2, IDS_UNKNOWNSOCKERR);
-                        sprintf_s(buf, sizeof(buf), buf2, buf[1]);
-                    }
-                }
-                ShowError(buf);
-                closesocket(ConnectSettings->sock);
-                ConnectSettings->sock = 0;
-                return -1;
-            }
-            int needread = 0;
-            switch(buf[3]) {
-            case 1: needread = 6; break;           // IPv4+port
-            case 3:
-                nrbytes = myrecv(ConnectSettings->sock, buf, 1, 0, progressbuf, 20, &loop, &lasttime);
-                if (nrbytes == 1)
-                    needread = buf[0]+2;
-                break;    // Domain Name+port
-            case 4: needread = 18; break;          // IPv6+port
-            }
-            nrbytes = myrecv(ConnectSettings->sock, buf, needread, 0, progressbuf, 20, &loop, &lasttime);
-            if(nrbytes != needread) {
-                ShowErrorId(IDS_VIA_PROXY_CONNECT);
-                closesocket(ConnectSettings->sock);
-                ConnectSettings->sock = 0;
-                return -1;
-            }
+            hr = SftpConnectProxySocks5(ConnectSettings, connecttoport, progressbuf, progress, &loop, &lasttime);
+            FIN_IF(hr, -14040 - hr);
             break;
         }
-        LoadStr(buf, IDS_INITSSH2);
-        if (ProgressProc(PluginNumber, buf, "-", 30)) {
-            closesocket(ConnectSettings->sock);
-            ConnectSettings->sock = 0;
-            return -1;
-        }
+    }
 
-        ConnectSettings->session = libssh2_session_init_ex(myalloc, myfree, myrealloc, ConnectSettings);
-        if (!ConnectSettings->session) {
-            SftpLogLastError("libssh2_session_init_ex: ", libssh2_session_last_errno(ConnectSettings->session));
-            ShowErrorId(IDS_ERR_INIT_SSH2);
-            closesocket(ConnectSettings->sock);
-            ConnectSettings->sock = 0;
-            return -1;
-        }
-        /* Since we have set non-blocking,  tell libssh2 we are non-blocking */
-        libssh2_session_set_blocking(ConnectSettings->session, 0);
+    progress = 30;    /* FIXME: magic number! */
+    LoadStr(buf, IDS_INITSSH2);
+    if (ProgressProc(PluginNumber, buf, "-", progress))
+        FIN(-50);
 
-        // Set ZLIB compression on/off
-        // Always allow "none" for the case that the server doesn't support compression
-        loop = 30;
-        LoadStr(buf, IDS_SET_COMPRESSION);
-        while ((err = libssh2_session_method_pref(ConnectSettings->session, LIBSSH2_METHOD_COMP_CS, ConnectSettings->compressed ? "zlib, none" : "none")) ==  LIBSSH2_ERROR_EAGAIN) {
-            if (ProgressLoop(buf, 30, 40, &loop, &lasttime))
-                break;
-            IsSocketReadable(ConnectSettings->sock);  // sleep to avoid 100% CPU!
-        }
-        SftpLogLastError("libssh2_session_method_pref: ", err);
-        while ((err = libssh2_session_method_pref(ConnectSettings->session, LIBSSH2_METHOD_COMP_SC, ConnectSettings->compressed ? "zlib, none" : "none")) ==  LIBSSH2_ERROR_EAGAIN) {
-            if (ProgressLoop(buf, 30, 40, &loop, &lasttime))
-                break;
-            IsSocketReadable(ConnectSettings->sock);  // sleep to avoid 100% CPU!
-        }
-        SftpLogLastError("libssh2_session_method_pref2: ", err);
-        /* ... start it up. This will trade welcome banners,  exchange keys, 
-         * and setup crypto,  compression,  and MAC layers
-         */
-        LoadStr(buf, IDS_SESSION_STARTUP);
-        while ((auth = libssh2_session_startup(ConnectSettings->session, (int)ConnectSettings->sock))  ==  LIBSSH2_ERROR_EAGAIN) {
-            if (ProgressLoop(buf, 40, 60, &loop, &lasttime))
-                break;
-            IsSocketReadable(ConnectSettings->sock);  // sleep to avoid 100% CPU!
-        } 
+    ConnectSettings->session = libssh2_session_init_ex(myalloc, myfree, myrealloc, ConnectSettings);
+    if (!ConnectSettings->session) {
+        SftpLogLastError("libssh2_session_init_ex: ", libssh2_session_last_errno(ConnectSettings->session));
+        ShowErrorId(IDS_ERR_INIT_SSH2);
+        FIN(-60);
+    }
+    /* Since we have set non-blocking, tell libssh2 we are non-blocking */
+    libssh2_session_set_blocking(ConnectSettings->session, 0);
 
-        if (auth) {
-            LoadStr(buf, IDS_ERR_SSH_SESSION);
-            char* errmsg;
-            int errmsg_len;
-            libssh2_session_last_error(ConnectSettings->session, &errmsg, &errmsg_len, false);
-            strlcat(buf, errmsg, sizeof(buf)-1);
-            ShowError(buf);
-
-            libssh2_session_free(ConnectSettings->session); 
-            ConnectSettings->session = NULL;
-            Sleep(1000);
-            closesocket(ConnectSettings->sock); 
-            ConnectSettings->sock = 0;
-            return -1;
-        } else
-            SftpLogLastError("libssh2_session_startup: ", libssh2_session_last_errno(ConnectSettings->session));
-
-        LoadStr(buf, IDS_SSH_LOGIN);
-        if (ProgressProc(PluginNumber, buf, "-", 60)) {
-            libssh2_session_free(ConnectSettings->session); 
-            ConnectSettings->session = NULL;
-            Sleep(1000);
-            closesocket(ConnectSettings->sock);
-            ConnectSettings->sock = 0;
-            return -1;
-        }
-
-        const char *fingerprint = libssh2_hostkey_hash(ConnectSettings->session, LIBSSH2_HOSTKEY_HASH_MD5);
-        
-        if (fingerprint == NULL) {
-            SftpLogLastError("Fingerprint error: ", libssh2_session_last_errno(ConnectSettings->session));
-            libssh2_session_free(ConnectSettings->session); 
-            ConnectSettings->session = NULL;
-            Sleep(1000);
-            closesocket(ConnectSettings->sock); 
-            ConnectSettings->sock = 0;
-            return -1;
-        }
-        LoadStr(buf, IDS_SERVER_FINGERPRINT);
-        ShowStatus(buf);
-        buf[0] = 0;
-        for (int i = 0; i < 16; i++) {
-            char buf1[20];
-            sprintf_s(buf1, sizeof(buf1), "%02X",  (unsigned char)fingerprint[i]);
-            strlcat(buf, buf1, sizeof(buf)-1);
-            if (i < 15)
-                strlcat(buf, " ", sizeof(buf)-1);
-        }
-        ShowStatus(buf);
-
-        // Verify server
-        if (ConnectSettings->savedfingerprint[0] == 0 || strcmp(ConnectSettings->savedfingerprint, buf) != 0) {  // a new server,  or changed fingerprint
-            char buf1[4*MAX_PATH];
-            char buf2[MAX_PATH];
-            if (ConnectSettings->savedfingerprint[0] == 0)
-                LoadStr(buf1, IDS_CONNECTION_FIRSTTIME);
-            else
-                LoadStr(buf1, IDS_FINGERPRINT_CHANGED);
-
-            LoadStr(buf2, IDS_FINGERPRINT);
-            strlcat(buf1, buf2, sizeof(buf1)-1);
-            strlcat(buf1, buf, sizeof(buf1)-1);
-            LoadStr(buf2, IDS_CONNECTING);
-            if (!RequestProc(PluginNumber, RT_MsgYesNo, buf2, buf1, NULL, 0)) {
-                libssh2_session_free(ConnectSettings->session); 
-                ConnectSettings->session = NULL;
-                Sleep(1000);
-                closesocket(ConnectSettings->sock); 
-                ConnectSettings->sock = 0;
-                return -1;
-            }
-            // Store it,  also for quick connections!
-            WritePrivateProfileString(ConnectSettings->DisplayName, "fingerprint", buf, ConnectSettings->IniFileName);
-            strlcpy(ConnectSettings->savedfingerprint, buf, sizeof(ConnectSettings->savedfingerprint)-1);
-        }
-
-        // Ask for user name if none was entered
-        if (ConnectSettings->user[0] == 0) {
-            char title[250];
-            LoadStr(title, IDS_USERNAME_FOR);
-            strlcat(title, ConnectSettings->server, sizeof(title)-1);
-            if (!RequestProc(PluginNumber, RT_UserName, title, NULL, ConnectSettings->user, sizeof(ConnectSettings->user)-1)) {
-                libssh2_session_free(ConnectSettings->session); 
-                ConnectSettings->session = NULL;
-                Sleep(1000);
-                closesocket(ConnectSettings->sock); 
-                ConnectSettings->sock = 0;
-                return -1;
-            }
-        }
-
-        char* userauthlist;
-        do {
-            userauthlist = libssh2_userauth_list(ConnectSettings->session, 
-                            ConnectSettings->user, (unsigned int)strlen(ConnectSettings->user));
-            LoadStr(buf, IDS_USER_AUTH_LIST);
-            if (ProgressLoop(buf, 60, 70, &loop, &lasttime))
-                break;
-        } while (userauthlist == NULL && libssh2_session_last_errno(ConnectSettings->session) == LIBSSH2_ERROR_EAGAIN);
-        int auth_pw=0;
-        if (userauthlist) {
-            LoadStr(buf, IDS_SUPPORTED_AUTH_METHODS);
-            strlcat(buf, userauthlist, sizeof(buf)-1); 
-            ShowStatus(buf);
-            _strlwr_s(userauthlist, strlen(userauthlist) + 1);
-            if (strstr(userauthlist, "password") != NULL) {
-                auth_pw |= 1;
-            }
-            if (strstr(userauthlist,  "keyboard-interactive") != NULL) {
-                auth_pw |= 2;
-            }
-            if (strstr(userauthlist,  "publickey") != NULL) {
-                auth_pw |= 4;
-            } 
-        } else {
-            SftpLogLastError("libssh2_userauth_list: ", libssh2_session_last_errno(ConnectSettings->session));
-            auth_pw = 5;   // assume password+pubkey allowed
-        }
-
-        auth = 0;
-        if (libssh2_userauth_authenticated(ConnectSettings->session)) {
-            ShowStatus("User authenticated without password.");
-        } else if (auth_pw & 4 && ConnectSettings->useagent && loadAgent) {
-            struct libssh2_agent_publickey *identity, *prev_identity = NULL; 
-            LIBSSH2_AGENT *agent = libssh2_agent_init(ConnectSettings->session);
-
-            bool connected = true;
-            if (!agent || libssh2_agent_connect(agent) != 0) {
-                // Try to launch Pageant!
-                char linkname[MAX_PATH], dirname[MAX_PATH];
-                connected = false;
-                dirname[0] = 0;
-                GetModuleFileName(hinst, dirname, sizeof(dirname)-10);
-                char* p = strrchr(dirname, '\\');
-                if (p)
-                    p++;
-                else
-                    p = dirname;
-                p[0] = 0;
-                strlcpy(linkname, dirname, MAX_PATH-1);
-                strlcat(linkname, "pageant.lnk", MAX_PATH-1);
-                if (GetFileAttributes(linkname) != 0xFFFFFFFF) {
-                    HWND active = GetForegroundWindow();
-                    ShellExecute(active, NULL, linkname, NULL, dirname, SW_SHOW);
-                    Sleep(2000);
-                    SYSTICKS starttime = get_sys_ticks();
-                    while (active != GetForegroundWindow() && get_ticks_between(starttime) < 20000) {  /* FIXME: magic number! */
-                        Sleep(200);
-                        if (ProgressLoop(buf, 65, 70, &loop, &lasttime))
-                            break;
-                    }
-                    agent = libssh2_agent_init(ConnectSettings->session);
-                    if (agent && libssh2_agent_connect(agent) == 0)
-                        connected = true;
-                }
-                if (!connected) {
-                    LoadStr(buf, IDS_AGENT_CONNECTERROR);
-                    ShowError(buf); 
-                    auth = -1;
-                }
-            }
-            if (connected) {
-                if (libssh2_agent_list_identities(agent)) {
-                    LoadStr(buf, IDS_AGENT_REQUESTIDENTITIES);
-                    ShowError(buf); 
-                    auth = -1;
-                } else {
-                    while (1) {
-                        auth = libssh2_agent_get_identity(agent, &identity, prev_identity);
-                        if (auth == 1) {
-                            LoadStr(buf, IDS_AGENT_AUTHFAILED);
-                            ShowError(buf); 
-                            break;
-                        }
-                        if (auth < 0) {
-                            LoadStr(buf, IDS_AGENT_NOIDENTITY);
-                            ShowError(buf); 
-                            break;
-                        }
-                        char buf1[128];
-                        LoadStr(buf1, IDS_AGENT_TRYING1);
-                        strlcpy(buf, buf1, sizeof(buf)-1);
-                        strlcat(buf, ConnectSettings->user, sizeof(buf)-1);
-                        LoadStr(buf1, IDS_AGENT_TRYING2);
-                        strlcat(buf, buf1, sizeof(buf)-1);
-                        strlcat(buf, identity->comment, sizeof(buf)-1);
-                        LoadStr(buf1, IDS_AGENT_TRYING3);
-                        strlcat(buf, buf1, sizeof(buf)-1);
-                        ShowStatus(buf);
-                        while ((auth = libssh2_agent_userauth(agent,  ConnectSettings->user,  identity)) == LIBSSH2_ERROR_EAGAIN);
-                        if (auth == LIBSSH2_ERROR_REQUIRE_KEYBOARD) {
-                            auth_pw = 2;
-                            break;
-                        } else if (auth == LIBSSH2_ERROR_REQUIRE_PASSWORD) {
-                            auth_pw = 1;
-                            break;
-                        } else if (auth) {
-                            LoadStr(buf, IDS_AGENT_AUTHFAILED);
-                            ShowStatus(buf);
-                        } else {
-                            LoadStr(buf, IDS_AGENT_AUTHSUCCEEDED);
-                            ShowStatus(buf);
-                            break;
-                        }
-                        prev_identity = identity;
-                    }
-                }
-            }
-            libssh2_agent_disconnect(agent);
-            libssh2_agent_free(agent);
-        } else if (auth_pw & 4 && ConnectSettings->pubkeyfile[0] && ConnectSettings->privkeyfile[0]) {
-            bool pubkeybad = false;
-            char filebuf[1024];
-            char passphrase[256];
-            char pubkeyfile[MAX_PATH], privkeyfile[MAX_PATH];
-            char* pubkeyfileptr = pubkeyfile;
-            strlcpy(pubkeyfile, ConnectSettings->pubkeyfile, sizeof(pubkeyfile)-1);
-            ReplaceSubString(pubkeyfile, "%USER%", ConnectSettings->user, sizeof(pubkeyfile)-1);
-            ReplaceEnvVars(pubkeyfile, sizeof(pubkeyfile)-1);
-            strlcpy(privkeyfile, ConnectSettings->privkeyfile, sizeof(privkeyfile)-1);
-            ReplaceSubString(privkeyfile, "%USER%", ConnectSettings->user, sizeof(privkeyfile)-1);
-            ReplaceEnvVars(privkeyfile, sizeof(privkeyfile)-1);
-
-            passphrase[0] = 0;
-            // verify that we have a valid public key file
-            HANDLE hf = CreateFile(pubkeyfile, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, 
-                NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL | FILE_FLAG_SEQUENTIAL_SCAN, NULL);
-            if (hf == INVALID_HANDLE_VALUE) {
-                LoadStr(buf, IDS_ERR_LOAD_PUBKEY);
-                strlcat(buf, pubkeyfile, sizeof(buf)-1);
-                ShowError(buf);
-                auth = LIBSSH2_ERROR_FILE;
-                pubkeybad = true;
-            } else {
-                DWORD dataread = 0;
-                if (ReadFile(hf, &filebuf, 35, &dataread, NULL)) {
-                    if (_strnicmp(filebuf, "ssh-", 4) != 0 && 
-                        _strnicmp(filebuf, "ecdsa-", 6) != 0 &&
-                        _strnicmp(filebuf, "-----BEGIN OPENSSH PRIVATE KEY-----", 35) != 0)
-                    {
-                        LoadStr(buf, IDS_ERR_PUBKEY_WRONG_FORMAT);
-                        ShowError(buf);
-                        auth = LIBSSH2_ERROR_FILE;
-                        pubkeybad = true;
-                    }
-                }
-                CloseHandle(hf);
-            }
-            if (!pubkeybad) {
-                // do not ask for the pass phrase if the key isn't encrypted!
-                HANDLE hf = CreateFile(privkeyfile, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, 
-                    NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL | FILE_FLAG_SEQUENTIAL_SCAN, NULL);
-                if (hf == INVALID_HANDLE_VALUE) {
-                    LoadStr(buf, IDS_ERR_LOAD_PRIVKEY);
-                    strlcat(buf, privkeyfile, sizeof(buf)-1);
-                    ShowError(buf);
-                    auth = LIBSSH2_ERROR_FILE;
-                } else {
-                    DWORD dataread = 0;
-                    bool isencrypted = true; 
-                    if (ReadFile(hf, &filebuf, sizeof(filebuf)-32, &dataread, NULL)) {
-                        filebuf[dataread] = 0;
-                        p = strchr(filebuf, '\n');
-                        if (!p)
-                            p = strchr(filebuf, '\r');
-                        if (p) {
-                            p++;
-                            while (p[0] == '\r' || p[0] == '\n')
-                                p++;
-                            isencrypted = false;
-                            // if there is something else than just MIME-encoded data, 
-                            // then the key is encrypted -> we need a pass phrase
-                            for (int i=0; i < 32; i++)
-                                if (!ismimechar(p[i]))
-                                    isencrypted = true;
-                            // new format -----BEGIN OPENSSH PRIVATE KEY-----
-                            // check whether the encoded string contains bcrypt
-                            if (!isencrypted) {
-                                char* p2 = filebuf;
-                                while (p2[0] == '\r' || p2[0] == '\n')
-                                    p2++;
-                                if (strncmp(p2, "-----BEGIN OPENSSH PRIVATE KEY-----", 35) == 0) {
-                                    char outbuf[64];
-                                    int l = MimeDecode(p, min(64, strlen(p)), outbuf, sizeof(outbuf));
-                                    for (int i = 0; i < l - 6; i++) {
-                                        if (outbuf[i] == 'b' && strncmp(outbuf + i,"bcrypt", 6) == 0) {
-                                            isencrypted = true;
-                                            break;
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    CloseHandle(hf);
-                    if (isencrypted) {
-                        char title[250];
-                        LoadStr(buf, IDS_PASSPHRASE);
-                        strlcpy(title, buf, sizeof(title)-1);
-                        strlcat(title, ConnectSettings->user, sizeof(title)-1);
-                        strlcat(title, "@", sizeof(title)-1);
-                        strlcat(title, ConnectSettings->server, sizeof(title)-1);
-                        LoadStr(buf, IDS_KEYPASSPHRASE);
-                        if (ConnectSettings->password[0] != 0) {
-                            char* p = strstr(ConnectSettings->password, "\",\"");
-                            int len = strlen(ConnectSettings->password);
-                            if (p && ConnectSettings->password[0] == '"' && ConnectSettings->password[len-1] == '"') {
-                                // two passwords -> use second one!
-                                p[0] = 0;
-                                strlcpy(passphrase, ConnectSettings->password + 1, sizeof(passphrase)-1);
-                                p[0] = '"';
-                            } else
-                            strlcpy(passphrase, ConnectSettings->password, sizeof(passphrase)-1);
-                        } else
-                            RequestProc(PluginNumber, RT_Password, title, buf, passphrase, sizeof(passphrase)-1);
-                    }
-
-                    LoadStr(buf, IDS_AUTH_PUBKEY_FOR);
-                    strlcpy(buf, "Auth via public key for user: ", sizeof(buf)-1);
-                    strlcat(buf, ConnectSettings->user, sizeof(buf)-1);
-                    ShowStatus(buf);
-
-                    if (strcmp(pubkeyfile, privkeyfile) == 0)
-                        pubkeyfileptr = NULL;
-
-                    LoadStr(buf, IDS_AUTH_PUBKEY);
-                    while ((auth = libssh2_userauth_publickey_fromfile(ConnectSettings->session,
-                                        ConnectSettings->user,
-                                        pubkeyfileptr,
-                                        privkeyfile,
-                                        passphrase)) == LIBSSH2_ERROR_EAGAIN) {
-                        if (ProgressLoop(buf, 60, 70, &loop, &lasttime))
-                            break;
-                        IsSocketReadable(ConnectSettings->sock);  // sleep to avoid 100% CPU!
-                    }
-                    if (auth == LIBSSH2_ERROR_REQUIRE_KEYBOARD)
-                        auth_pw = 2;
-                    else if (auth == LIBSSH2_ERROR_REQUIRE_PASSWORD)
-                        auth_pw = 1;
-                    else if (auth) {
-                        SftpLogLastError("libssh2_userauth_publickey_fromfile: ", auth);
-                        ShowErrorId(IDS_ERR_AUTH_PUBKEY);
-                    }
-                    else if (!ConnectSettings->password[0])
-                        strlcpy(ConnectSettings->password, passphrase, sizeof(ConnectSettings->password)-1);
-                }
-            }
-        } else
-            auth_pw = auth_pw & 3;
-        if ((auth_pw & 4) == 0) {
-            if (auth_pw & 2) {   // keyboard-interactive
-                LoadStr(buf, IDS_AUTH_KEYBDINT_FOR);
-                strlcat(buf, ConnectSettings->user, sizeof(buf)-1);
-                ShowStatus(buf);
-
-                LoadStr(buf, IDS_AUTH_KEYBDINT);
-                ConnectSettings->InteractivePasswordSent = false;
-                while ((auth = libssh2_userauth_keyboard_interactive(ConnectSettings->session,ConnectSettings->user, &kbd_callback))==
-                    LIBSSH2_ERROR_EAGAIN) {
-                    if (ProgressLoop(buf, 70, 80, &loop, &lasttime))
-                        break;
-                    IsSocketReadable(ConnectSettings->sock);  // sleep to avoid 100% CPU!
-                }
-                if (auth) {
-                    SftpLogLastError("libssh2_userauth_keyboard_interactive: ", auth);
-                    if ((auth_pw & 1) == 0)  // only show error if password auth isn't supported - otherwise try that
-                        ShowErrorId(IDS_ERR_AUTH_KEYBDINT);
-                }
-            } else
-                auth = LIBSSH2_ERROR_INVAL;
-            if (auth != 0 && (auth_pw & 1) != 0) {
-                char passphrase[256];
-
-                char* p = strstr(ConnectSettings->password, "\",\"");
-                int len = strlen(ConnectSettings->password);
-                if (p && ConnectSettings->password[0] == '"' && ConnectSettings->password[len-1] == '"') {
-                    // two passwords -> use second one!
-                    ConnectSettings->password[len-1] = 0;
-                    strlcpy(passphrase, p + 3, sizeof(passphrase)-1);
-                    ConnectSettings->password[len-1] = '"';
-                } else
-                    strlcpy(passphrase, ConnectSettings->password, sizeof(passphrase)-1);
-                if (passphrase[0] == 0) {
-                    char title[250];
-                    strlcpy(title, "SFTP password for ", sizeof(title)-1);
-                    strlcat(title, ConnectSettings->user, sizeof(title)-1);
-                    strlcat(title, "@", sizeof(title)-1);
-                    strlcat(title, ConnectSettings->server, sizeof(title)-1);
-                    RequestProc(PluginNumber, RT_Password, title, NULL, passphrase, sizeof(passphrase)-1);
-                }
+    // Set ZLIB compression on/off
+    // Always allow "none" for the case that the server doesn't support compression
+    loop = 30;
+    LoadStr(buf, IDS_SET_COMPRESSION);
+    LPCSTR ses_prefs = ConnectSettings->compressed ? "zlib,none" : "none";
  
-                LoadStr(buf, IDS_AUTH_PASSWORD_FOR);
-                strlcat(buf, ConnectSettings->user, sizeof(buf)-1);
-                ShowStatus(buf);
+    while ((err = libssh2_session_method_pref(ConnectSettings->session, LIBSSH2_METHOD_COMP_CS, ses_prefs)) == LIBSSH2_ERROR_EAGAIN) {
+        if (ProgressLoop(buf, progress, progress + 10, &loop, &lasttime))
+            break;
+        IsSocketReadable(ConnectSettings->sock);  // sleep to avoid 100% CPU!
+    }
+    SftpLogLastError("libssh2_session_method_pref: ", err);
 
-                LoadStr(buf, IDS_AUTH_PASSWORD);
-                /* We could authenticate via password */
-                while(1) {
-                    auth = libssh2_userauth_password_ex(ConnectSettings->session, ConnectSettings->user, strlen(ConnectSettings->user), passphrase, strlen(passphrase), &newpassfunc);
-                    if (auth != LIBSSH2_ERROR_EAGAIN && auth != LIBSSH2_ERROR_PASSWORD_EXPIRED)
-                        break;
-                    if (ProgressLoop(buf, 70, 80, &loop, &lasttime))
-                        break;
-                    IsSocketReadable(ConnectSettings->sock);  // sleep to avoid 100% CPU!
-                }
-                void* abst = ConnectSettings;
-                if (auth) {
-                    SftpLogLastError("libssh2_userauth_password_ex: ", auth);
-                    ShowErrorId(IDS_ERR_AUTH_PASSWORD);
-                }
-                else if (!ConnectSettings->password[0])
-                    strlcpy(ConnectSettings->password, passphrase, sizeof(ConnectSettings->password)-1);
-            }
+    while ((err = libssh2_session_method_pref(ConnectSettings->session, LIBSSH2_METHOD_COMP_SC, ses_prefs)) == LIBSSH2_ERROR_EAGAIN) {
+        if (ProgressLoop(buf, progress, progress + 10, &loop, &lasttime))
+            break;
+        IsSocketReadable(ConnectSettings->sock);  // sleep to avoid 100% CPU!
+    }
+    SftpLogLastError("libssh2_session_method_pref2: ", err);
+
+    /* ... start it up. This will trade welcome banners, exchange keys, and setup crypto, compression, and MAC layers */
+    progress = 40;    /* FIXME: magic number! */
+    LoadStr(buf, IDS_SESSION_STARTUP);
+    while ((auth = libssh2_session_startup(ConnectSettings->session, (int)ConnectSettings->sock)) == LIBSSH2_ERROR_EAGAIN) {
+        if (ProgressLoop(buf, progress, progress + 20, &loop, &lasttime))
+            break;
+        IsSocketReadable(ConnectSettings->sock);  // sleep to avoid 100% CPU!
+    } 
+
+    if (auth) {
+        libssh2_session_last_error(ConnectSettings->session, &errmsg, &errmsg_len, false);
+        ShowErrorId(IDS_ERR_SSH_SESSION, errmsg);
+        FIN(-70);
+    }
+    SftpLogLastError("libssh2_session_startup: ", libssh2_session_last_errno(ConnectSettings->session));
+
+    progress = 60;    /* FIXME: magic number! */
+    LoadStr(buf, IDS_SSH_LOGIN);
+    if (ProgressProc(PluginNumber, buf, "-", progress))
+        FIN(-80);
+
+    LPCSTR fingerprint = libssh2_hostkey_hash(ConnectSettings->session, LIBSSH2_HOSTKEY_HASH_MD5);
+    if (fingerprint == NULL) {
+        SftpLogLastError("Fingerprint error: ", libssh2_session_last_errno(ConnectSettings->session));
+        FIN(-90);
+    }
+    ShowStatusId(IDS_SERVER_FINGERPRINT, NULL, true);
+    buf[0] = 0;
+    for (size_t i = 0; i < 16; i++) {
+        char buf1[20];
+        sprintf_s(buf1, sizeof(buf1), "%02X", (UCHAR)fingerprint[i]);
+        strlcat(buf, buf1, sizeof(buf)-1);
+        if (i < 15)
+            strlcat(buf, " ", sizeof(buf)-1);
+    }
+    ShowStatus(buf);
+
+    // Verify server
+    if (ConnectSettings->savedfingerprint[0] == 0 || strcmp(ConnectSettings->savedfingerprint, buf) != 0) {
+        // a new server, or changed fingerprint
+        char buf1[4*MAX_PATH];
+        char buf2[MAX_PATH];
+        if (ConnectSettings->savedfingerprint[0] == 0)
+            LoadStr(buf1, IDS_CONNECTION_FIRSTTIME);
+        else
+            LoadStr(buf1, IDS_FINGERPRINT_CHANGED);
+
+        LoadStr(buf2, IDS_FINGERPRINT);
+        strlcat(buf1, buf2, sizeof(buf1)-1);
+        strlcat(buf1, buf, sizeof(buf1)-1);
+        LoadStr(buf2, IDS_CONNECTING);
+        if (!RequestProc(PluginNumber, RT_MsgYesNo, buf2, buf1, NULL, 0))
+            FIN(-100);
+
+        // Store it,  also for quick connections!
+        WritePrivateProfileString(ConnectSettings->DisplayName, "fingerprint", buf, ConnectSettings->IniFileName);
+        strlcpy(ConnectSettings->savedfingerprint, buf, sizeof(ConnectSettings->savedfingerprint)-1);
+    }
+
+    // Ask for user name if none was entered
+    if (ConnectSettings->user[0] == 0) {
+        char title[250];
+        LoadStr(title, IDS_USERNAME_FOR);
+        strlcat(title, ConnectSettings->server, sizeof(title)-1);
+        if (!RequestProc(PluginNumber, RT_UserName, title, NULL, ConnectSettings->user, sizeof(ConnectSettings->user)-1))
+            FIN(-110);
+    }
+
+    progress = 60;    /* FIXME: magic number! */
+    char* userauthlist;
+    do {
+        userauthlist = libssh2_userauth_list(ConnectSettings->session, ConnectSettings->user, (UINT)strlen(ConnectSettings->user));
+        LoadStr(buf, IDS_USER_AUTH_LIST);
+        if (ProgressLoop(buf, progress, progress + 10, &loop, &lasttime))
+            break;
+    } while (userauthlist == NULL && libssh2_session_last_errno(ConnectSettings->session) == LIBSSH2_ERROR_EAGAIN);
+
+    int auth_pw = 0;
+    if (userauthlist) {
+        ShowStatusId(IDS_SUPPORTED_AUTH_METHODS, userauthlist, true);
+        _strlwr_s(userauthlist, strlen(userauthlist) + 1);
+        if (strstr(userauthlist, "password")) {
+            auth_pw |= SSH_AUTH_PASSWORD;
+        }
+        if (strstr(userauthlist,  "keyboard-interactive")) {
+            auth_pw |= SSH_AUTH_KEYBOARD;
+        }
+        if (strstr(userauthlist,  "publickey")) {
+            auth_pw |= SSH_AUTH_PUBKEY;
         } 
-        
-        if (auth){
-            libssh2_session_disconnect(ConnectSettings->session, "Shutdown");
-            libssh2_session_free(ConnectSettings->session); 
-            ConnectSettings->session = NULL;
-            Sleep(1000);
-            closesocket(ConnectSettings->sock); 
-            ConnectSettings->sock = 0;
-            return SFTP_FAILED;
-        }
-        /*char* banner=_ssh_get_issue_banner(ConnectSettings->session);
-        if(banner){
-            ShowStatus(banner);
-            free(banner);
-        }*/
+    } else {
+        SftpLogLastError("libssh2_userauth_list: ", libssh2_session_last_errno(ConnectSettings->session));
+        auth_pw = SSH_AUTH_PASSWORD | SSH_AUTH_PUBKEY;   // assume password+pubkey allowed
+    }
 
-        // try to auto-detect UTF-8 settings
-        if (ConnectSettings->utf8names == -1) {
-            ConnectSettings->utf8names = 0;
-            ConnectSettings->codepage = 0;
+    auth = 0;
+    if (libssh2_userauth_authenticated(ConnectSettings->session)) {
+        ShowStatus("User authenticated without password.");
+    } else if ((auth_pw & SSH_AUTH_PUBKEY) && ConnectSettings->useagent && loadAgent) {
+        progress = 65;
+        int rc = SftpAuthPageant(ConnectSettings, progressbuf, progress, &loop, &lasttime, &auth_pw);
+        auth = (rc < 0) ? LIBSSH2_ERROR_AGENT_PROTOCOL : 0;
+    } else if ((auth_pw & SSH_AUTH_PUBKEY) && ConnectSettings->pubkeyfile[0] && ConnectSettings->privkeyfile[0]) {
+        int rc = SftpAuthPubKey(ConnectSettings, progressbuf, progress, &loop, &lasttime, &auth_pw);
+        auth = (rc < 0) ? LIBSSH2_ERROR_FILE : 0;
+    } else {
+        auth_pw &= ~SSH_AUTH_PUBKEY;
+    }
 
-            char cmdname[MAX_PATH];
-            char reply[8192];
-            strlcpy(cmdname, "echo $LC_ALL $LC_CTYPE $LANG", sizeof(cmdname)-1);
-            reply[0] = 0;
-            if (SftpQuoteCommand2(ConnectSettings, NULL, cmdname, reply, sizeof(reply)-1) == 0) {
-                _strupr_s(reply, sizeof(reply));
-                if (strstr(reply, "UTF-8"))
-                    ConnectSettings->utf8names = 1;
-                else {
-                    strlcpy(cmdname, "locale", sizeof(cmdname)-1);
-                    if (SftpQuoteCommand2(ConnectSettings, NULL, cmdname, reply, sizeof(reply)-1) == 0) {
-                        _strupr_s(reply, sizeof(reply));
-                        if (strstr(reply, "UTF-8"))
-                            ConnectSettings->utf8names = 1;
-                    }
-                }
-            }
-            // store the result!
-            if (strcmp(ConnectSettings->DisplayName, s_quickconnect) != 0)
-                WritePrivateProfileString(ConnectSettings->DisplayName, "utf8", ConnectSettings->utf8names ? "1" : "0", ConnectSettings->IniFileName);
-        }
-        if (ConnectSettings->unixlinebreaks == -1) {
-            ConnectSettings->unixlinebreaks = 0;
-            char cmdname[MAX_PATH];
-            char reply[8192];
-            strlcpy(cmdname, "echo $OSTYPE", sizeof(cmdname)-1);
-            reply[0] = 0;
-            if (SftpQuoteCommand2(ConnectSettings, NULL, cmdname, reply, sizeof(reply)-1) == 0) {
-                _strupr_s(reply, sizeof(reply));
-                if (strstr(reply, "LINUX") || strstr(reply, "UNIX") || strstr(reply, "AIX"))
-                    ConnectSettings->unixlinebreaks = 1;
-                else {   // look whether the returned data ends with LF or CRLF!
-                    global_detectcrlf = -1;
-                    strlcpy(cmdname, "ls -l", sizeof(cmdname)-1); // try to get some multi-line reply
-                    if (SftpQuoteCommand2(ConnectSettings, NULL, cmdname, reply, sizeof(reply)-1) == 0) {
-                        if (global_detectcrlf == 0)
-                            ConnectSettings->unixlinebreaks = 1;
-                    }
-                }
-            }
-            // store the result!
-            if (strcmp(ConnectSettings->DisplayName, s_quickconnect) != 0)
-                WritePrivateProfileString(ConnectSettings->DisplayName, "unixlinebreaks", ConnectSettings->unixlinebreaks ? "1" : "0", ConnectSettings->IniFileName);
-        }
-        ConnectSettings->sftpsession = NULL;
-
-        // Send user-defined command line
-        if (ConnectSettings->connectsendcommand[0]) {
-            ShowStatus("Sending user-defined command:");
-            ShowStatus(ConnectSettings->connectsendcommand);
-            strlcpy(buf, ConnectSettings->connectsendcommand, sizeof(buf)-1);
-            LIBSSH2_CHANNEL *channel;
-            channel = ConnectChannel(ConnectSettings->session);
-            SftpLogLastError("ConnectChannel: ", libssh2_session_last_errno(ConnectSettings->session));
-            if (ConnectSettings->sendcommandmode <= 1) {
-                if (SendChannelCommand(ConnectSettings->session, channel, ConnectSettings->connectsendcommand)) {
-                    while (!libssh2_channel_eof(channel)) {
-                        if (ProgressLoop(buf, 80, 90, &loop, &lasttime))
-                            break;
-                        char databuf[1024], *p, *p2;
-                        databuf[0] = 0;
-                        if (0 < libssh2_channel_read_stderr(channel, databuf, sizeof(databuf)-1)) {
-                            p = databuf;
-                            while (p[0] > 0 && p[0] <= ' ')
-                                p++;
-                            if (p[0]) {
-                                p2 = p + strlen(p) - 1;
-                                while (p2[0] <= ' ' && p2 >= p) {
-                                    p2[0] = 0;
-                                    p2--;
-                                }
-                            }
-                            if (p[0])
-                                ShowStatus(databuf);
-                        }
-                        databuf[0] = 0;
-                        if (!libssh2_channel_eof(channel) &&
-                            0 < libssh2_channel_read(channel, databuf, sizeof(databuf)-1)) {
-                            p = databuf;
-                            while (p[0] > 0 && p[0] <= ' ')
-                                p++;
-                            if (p[0]) {
-                                p2 = p + strlen(p) - 1;
-                                while (p2[0] <= ' ' && p2 >= p) {
-                                    p2[0] = 0;
-                                    p2--;
-                                }
-                            }
-                            if (p[0])
-                                ShowStatus(databuf);
-                        }
-                    }
-                }
-                if (ConnectSettings->sendcommandmode == 0)
-                    DisconnectShell(channel);
-            } else {
-                int rc = -1;
-                do {
-                    rc = libssh2_channel_exec(channel, ConnectSettings->connectsendcommand);
-                    if (rc <0 ) {
-                        if (rc == -1)
-                            rc = libssh2_session_last_errno(ConnectSettings->session);
-                        if (rc != LIBSSH2_ERROR_EAGAIN)
-                            break;
-                    }
-                    if (EscapePressed())
-                        break;
-                } while (rc < 0);
-            }
-            Sleep(1000);
-        }
-
-        if (ConnectSettings->scpfordata && ConnectSettings->scpserver64bit == -1) {
-            ConnectSettings->scpserver64bit = 0;
-            char cmdname[MAX_PATH];
-            char reply[8192];
-            strlcpy(cmdname, "file `which scp`", sizeof(cmdname)-1);
-            reply[0] = 0;
-            if (SftpQuoteCommand2(ConnectSettings, NULL, cmdname, reply, sizeof(reply)-1) == 0) {
-                _strupr_s(reply, sizeof(reply));
-                // /usr/bin/scp: ELF 32-bit LSB executable, ARM ...
-                // /usr/bin/scp: ELF 64-bit LSB shared object, x86-64 ...
-                if (strstr(reply, "64-BIT")) {
-                    ShowStatus("64-bit scp detected!");
-                    ConnectSettings->scpserver64bit = 1;
-                }
-            }
-            // store the result!
-            if (strcmp(ConnectSettings->DisplayName, s_quickconnect) != 0)
-                WritePrivateProfileString(ConnectSettings->DisplayName, "largefilesupport", ConnectSettings->scpserver64bit ? "1" : "0", ConnectSettings->IniFileName);
-        }
-
-        if (!ConnectSettings->scponly) {
-            LoadStr(buf, IDS_SESSION_STARTUP);
-            strlcat(buf, " (SFTP)", sizeof(buf)-1);
-            ShowStatus(buf);
-            do {
-                ConnectSettings->sftpsession = NULL;
-                if (ProgressLoop(buf, 80, 90, &loop, &lasttime))
+    progress = 70;    /* FIXME: magic number! */
+    if ((auth_pw & SSH_AUTH_PUBKEY) == 0) {
+        if (auth_pw & SSH_AUTH_KEYBOARD) {   // keyboard-interactive
+            ShowStatusId(IDS_AUTH_KEYBDINT_FOR, ConnectSettings->user, true);
+            LoadStr(buf, IDS_AUTH_KEYBDINT);
+            pConnectSettings cs = ConnectSettings;
+            cs->InteractivePasswordSent = false;
+            while ((auth = libssh2_userauth_keyboard_interactive(cs->session, cs->user, &kbd_callback)) == LIBSSH2_ERROR_EAGAIN) {
+                if (ProgressLoop(buf, progress, progress + 10, &loop, &lasttime))
                     break;
-                ConnectSettings->sftpsession=libssh2_sftp_init(ConnectSettings->session);
-                if ((!ConnectSettings->sftpsession) && (libssh2_session_last_errno(ConnectSettings->session) != LIBSSH2_ERROR_EAGAIN)) {
-                    break;
-                }
                 IsSocketReadable(ConnectSettings->sock);  // sleep to avoid 100% CPU!
-            } while (!ConnectSettings->sftpsession);
-
-            if (!ConnectSettings->sftpsession){
-                LoadStr(buf, IDS_ERR_INIT_SFTP);
-                char* errmsg;
-                int errmsg_len, rc;
-                libssh2_session_last_error(ConnectSettings->session, &errmsg, &errmsg_len, false);
-                strlcat(buf, errmsg, sizeof(buf)-1);
-                ShowError(buf);
-                LoadStr(buf, IDS_DISCONNECTING);
-                do {
-                    rc = libssh2_session_disconnect(ConnectSettings->session, "Shutdown");
-                    if (ProgressLoop(buf, 80, 90, &loop, &lasttime))
-                        break;
-                    IsSocketReadable(ConnectSettings->sock);  // sleep to avoid 100% CPU!
-                } while (rc == LIBSSH2_ERROR_EAGAIN);
-                libssh2_session_free(ConnectSettings->session);
-                ConnectSettings->session = NULL;
-                Sleep(1000);
-                closesocket(ConnectSettings->sock);
-                ConnectSettings->sock = 0;
-                return SFTP_FAILED;
             }
+            if (auth) {
+                SftpLogLastError("libssh2_userauth_keyboard_interactive: ", auth);
+                if ((auth_pw & SSH_AUTH_PASSWORD) == 0)  // only show error if password auth isn't supported - otherwise try that
+                    ShowErrorId(IDS_ERR_AUTH_KEYBDINT);
+            }
+        } else {
+            auth = LIBSSH2_ERROR_INVAL;
+        }
+        if (auth != 0 && (auth_pw & SSH_AUTH_PASSWORD) != 0) {
+            char passphrase[256];
 
-            // Seems that we need to set it again,  so the sftpsession is informed too!
-            // Otherwise disconnect hangs with CoreFTP mini-sftp-server in libssh2_sftp_shutdown
-            libssh2_session_set_blocking(ConnectSettings->session, 0);
+            char* p = strstr(ConnectSettings->password, "\",\"");
+            size_t len = strlen(ConnectSettings->password);
+            if (p && ConnectSettings->password[0] == '"' && ConnectSettings->password[len-1] == '"') {
+                // two passwords -> use second one!
+                ConnectSettings->password[len-1] = 0;
+                strlcpy(passphrase, p + 3, sizeof(passphrase)-1);
+                ConnectSettings->password[len-1] = '"';
+            } else {
+                strlcpy(passphrase, ConnectSettings->password, sizeof(passphrase)-1);
+            }
+            if (passphrase[0] == 0) {
+                char title[250];
+                strlcpy(title, "SFTP password for ", sizeof(title)-1);
+                strlcat(title, ConnectSettings->user, sizeof(title)-1);
+                strlcat(title, "@", sizeof(title)-1);
+                strlcat(title, ConnectSettings->server, sizeof(title)-1);
+                RequestProc(PluginNumber, RT_Password, title, NULL, passphrase, sizeof(passphrase)-1);
+            }
+ 
+            ShowStatusId(IDS_AUTH_PASSWORD_FOR, ConnectSettings->user, true);
+
+            LoadStr(buf, IDS_AUTH_PASSWORD);
+            /* We could authenticate via password */
+            while(1) {
+                auth = libssh2_userauth_password_ex(ConnectSettings->session, ConnectSettings->user, strlen(ConnectSettings->user), passphrase, strlen(passphrase), &newpassfunc);
+                if (auth != LIBSSH2_ERROR_EAGAIN && auth != LIBSSH2_ERROR_PASSWORD_EXPIRED)
+                    break;
+                if (ProgressLoop(buf, progress, progress + 10, &loop, &lasttime))
+                    break;
+                IsSocketReadable(ConnectSettings->sock);  // sleep to avoid 100% CPU!
+            }
+            if (auth) {
+                SftpLogLastError("libssh2_userauth_password_ex: ", auth);
+                ShowErrorId(IDS_ERR_AUTH_PASSWORD);
+            }
+            else if (!ConnectSettings->password[0])
+                strlcpy(ConnectSettings->password, passphrase, sizeof(ConnectSettings->password)-1);
+        }
+    } 
+
+    FIN_IF(auth, SFTP_FAILED);
+
+    // try to auto-detect UTF-8 settings
+    if (ConnectSettings->utf8names == -1) {    /* FIXME: magic number! */
+        ConnectSettings->codepage = 0;
+        ConnectSettings->utf8names = 0;
+        int rc = SftpSessionDetectUtf8(ConnectSettings);
+        ConnectSettings->utf8names = (rc == 1) ? 1 : 0;   /* FIXME: magic number! */
+    }
+    if (ConnectSettings->unixlinebreaks == -1) {    /* FIXME: magic number! */
+        ConnectSettings->unixlinebreaks = 0;
+        int rc = SftpSessionDetectLineBreaks(ConnectSettings);
+        ConnectSettings->unixlinebreaks = (rc == 1) ? 1 : 0;   /* FIXME: magic number! */
+    }
+
+    progress = 80;    /* FIXME: magic number! */
+
+    // Send user-defined command line
+    if (ConnectSettings->connectsendcommand[0]) {
+        ShowStatus("Sending user-defined command:");
+        ShowStatus(ConnectSettings->connectsendcommand);
+        SftpSessionSendCommand(ConnectSettings, progressbuf, progress, &loop, &lasttime);
+        Sleep(1000);
+    }
+
+    if (ConnectSettings->scpfordata && ConnectSettings->scpserver64bit == -1) {      /* FIXME: magic number! */
+        ConnectSettings->scpserver64bit = 0;
+        char cmdname[MAX_PATH];
+        char reply[8192];
+        strlcpy(cmdname, "file `which scp`", sizeof(cmdname)-1);
+        reply[0] = 0;
+        if (SftpQuoteCommand2(ConnectSettings, NULL, cmdname, reply, sizeof(reply)-1) == 0) {
+            _strupr_s(reply, sizeof(reply));
+            // /usr/bin/scp: ELF 32-bit LSB executable, ARM ...
+            // /usr/bin/scp: ELF 64-bit LSB shared object, x86-64 ...
+            if (strstr(reply, "64-BIT")) {
+                ShowStatus("64-bit scp detected!");
+                ConnectSettings->scpserver64bit = 1;
+            }
+        }
+        // store the result!
+        if (strcmp(ConnectSettings->DisplayName, s_quickconnect) != 0)
+            WritePrivateProfileString(ConnectSettings->DisplayName, "largefilesupport", ConnectSettings->scpserver64bit ? "1" : "0", ConnectSettings->IniFileName);
+    }
+
+    progress = 80;    /* FIXME: magic number! */
+
+    if (!ConnectSettings->scponly) {
+        ShowStatusId(IDS_SESSION_STARTUP, " (SFTP)", true);
+        do {
+            ConnectSettings->sftpsession = NULL;
+            if (ProgressLoop(buf, progress, progress + 10, &loop, &lasttime))
+                break;
+            ConnectSettings->sftpsession = libssh2_sftp_init(ConnectSettings->session);
+            if (!ConnectSettings->sftpsession) {
+                if (libssh2_session_last_errno(ConnectSettings->session) != LIBSSH2_ERROR_EAGAIN)
+                    break;
+            }
+            IsSocketReadable(ConnectSettings->sock);  // sleep to avoid 100% CPU!
+        } while (!ConnectSettings->sftpsession);
+
+        if (!ConnectSettings->sftpsession){
+            libssh2_session_last_error(ConnectSettings->session, &errmsg, &errmsg_len, false);
+            ShowStatusId(IDS_ERR_INIT_SFTP, errmsg, true);
+            FIN(SFTP_FAILED);
         }
 
-        LoadStr(buf, IDS_GET_DIRECTORY);
-        if (ProgressProc(PluginNumber, buf, "-", 90)) {
-            LoadStr(buf, IDS_DISCONNECTING);
-            int rc;
-            if (ConnectSettings->sftpsession) {
-                do {
-                    rc = libssh2_sftp_shutdown(ConnectSettings->sftpsession);
-                    if (ProgressLoop(buf, 80, 100, &loop, &lasttime))
-                        break;
-                    IsSocketReadable(ConnectSettings->sock);  // sleep to avoid 100% CPU!
-                } while (rc == LIBSSH2_ERROR_EAGAIN);
-                ConnectSettings->sftpsession = NULL;
-            }
+        // Seems that we need to set it again,  so the sftpsession is informed too!
+        // Otherwise disconnect hangs with CoreFTP mini-sftp-server in libssh2_sftp_shutdown
+        libssh2_session_set_blocking(ConnectSettings->session, 0);
+    }
+
+    progress = 90;    /* FIXME: magic number! */
+
+    LoadStr(buf, IDS_GET_DIRECTORY);
+    if (ProgressProc(PluginNumber, buf, "-", progress))
+        FIN(SFTP_FAILED);
+
+    return SFTP_OK;
+    
+fin:    
+    if (hr) {
+        LoadStr(buf, IDS_DISCONNECTING);
+        int rc;
+        if (ConnectSettings->sftpsession) {
             do {
-                rc = libssh2_session_disconnect(ConnectSettings->session,  "Shutdown");
-                if (ProgressLoop(buf, 80, 100, &loop, &lasttime))
+                rc = libssh2_sftp_shutdown(ConnectSettings->sftpsession);
+                if (ProgressLoop(buf, progress, 90, &loop, &lasttime))
+                    break;
+                IsSocketReadable(ConnectSettings->sock);  // sleep to avoid 100% CPU!
+            } while (rc == LIBSSH2_ERROR_EAGAIN);
+            ConnectSettings->sftpsession = NULL;
+            progress = 90;
+        }
+        if (ConnectSettings->session) {
+            int rc;
+            do {
+                rc = libssh2_session_disconnect(ConnectSettings->session, "Shutdown");
+                if (ProgressLoop(buf, progress, 100, &loop, &lasttime))
                     break;
                 IsSocketReadable(ConnectSettings->sock);  // sleep to avoid 100% CPU!
             } while (rc == LIBSSH2_ERROR_EAGAIN);
             libssh2_session_free(ConnectSettings->session); 
             ConnectSettings->session = NULL;
-            Sleep(1000);
-            closesocket(ConnectSettings->sock);
+        }
+        Sleep(1000);    /* FIXME: ?????????? */
+        if (ConnectSettings->sock) {
+            closesocket(ConnectSettings->sock); 
             ConnectSettings->sock = 0;
-            return SFTP_FAILED;
         }
     }
-    if (ConnectSettings->scponly) {
-        if (!ConnectSettings->session)
-            return SFTP_FAILED;
-        else
-            return SFTP_OK;
-    } else if (!ConnectSettings->sftpsession) {
-        return SFTP_FAILED;
-    } else
-        return SFTP_OK;
+    return hr;
 }
 
 LPCSTR g_pszKey = "unpzScGeCInX7XcRM2z+svTK+gegRLhz9KXVbYKJl5boSvVCcfym";
@@ -2466,7 +2503,8 @@ SERVERID SftpConnectToServer(LPCSTR DisplayName, LPCSTR inifilename, LPCSTR over
         }
         if (CryptProc && strcmp(gConnectResults->password, "\001") == 0) {
             ConnectSettings.passSaveMode = sftp::PassSaveMode::crypt;
-            if (CryptProc(PluginNumber, CryptoNumber, FS_CRYPT_LOAD_PASSWORD, gDisplayName, gConnectResults->password, countof(gConnectResults->password)-1)!=FS_FILE_OK) {
+            int rc = CryptProc(PluginNumber, CryptoNumber, FS_CRYPT_LOAD_PASSWORD, gDisplayName, gConnectResults->password, countof(gConnectResults->password) - 1);
+            if (rc != FS_FILE_OK) {
                 MessageBox(GetActiveWindow(), "Failed to load password!", "Error", MB_ICONSTOP);
                 return NULL;
             }
@@ -2479,7 +2517,8 @@ SERVERID SftpConnectToServer(LPCSTR DisplayName, LPCSTR inifilename, LPCSTR over
                 strlcpy(proxyentry, "proxy", sizeof(proxyentry)-1);
 
             strlcat(proxyentry, "$$pass", sizeof(proxyentry)-1);
-            if (CryptProc(PluginNumber, CryptoNumber, FS_CRYPT_LOAD_PASSWORD, proxyentry, gConnectResults->proxypassword, countof(gConnectResults->proxypassword)-1) != FS_FILE_OK) {
+            int rc = CryptProc(PluginNumber, CryptoNumber, FS_CRYPT_LOAD_PASSWORD, proxyentry, gConnectResults->proxypassword, countof(gConnectResults->proxypassword) - 1);
+            if (rc != FS_FILE_OK) {
                 MessageBox(GetActiveWindow(), "Failed to load proxy password!", "Error", MB_ICONSTOP);
                 return NULL;
             }

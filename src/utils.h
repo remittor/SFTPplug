@@ -3,6 +3,9 @@
 #include "global.h"
 
 
+#define FIN_IF(_cond_,_code_) do { if ((_cond_)) { hr = _code_; goto fin; } } while(0)
+#define FIN(_code_)           do { hr = _code_; goto fin; } while(0)
+
 /* String functions */
 
 #define LoadStr(s, i)  LoadString(hinst, (i), (s), countof(s)-1)
