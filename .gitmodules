@@ -1,0 +1,12 @@
+[submodule "ext/libressl-msvc"]
+	path = ext/libressl-msvc
+	url = https://github.com/remittor/libressl-msvc.git
+	branch = v3.2.2
+[submodule "ext/libssh2-msvc"]
+	path = ext/libssh2-msvc
+	url = https://github.com/remittor/libssh2-msvc.git
+	branch = master
+[submodule "ext/libssh2"]
+	path = ext/libssh2
+	url = https://github.com/libssh2/libssh2.git
+	branch = master
