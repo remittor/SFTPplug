@@ -3282,7 +3282,7 @@ int SftpDownloadFileW(SERVERID serverid, LPCWSTR RemoteName, LPCWSTR LocalName, 
 {   
     LIBSSH2_SFTP_HANDLE *remotefilesftp = NULL;
     HANDLE localfile;
-    char data[RECV_BLOCK_SIZE];
+    LPSTR data = NULL;
     char filename[wdirtypemax];
     __int64 sizeloaded = 0;
     __int64 resumepos = 0;
@@ -3444,12 +3444,25 @@ int SftpDownloadFileW(SERVERID serverid, LPCWSTR RemoteName, LPCWSTR LocalName, 
 
     ProgressProcT(PluginNumber, pend, LocalName, 0);
 
+    const size_t base_sftp_read_size = 30000;               /* FIXME: magic number! (libssh2 MAX_SFTP_READ_SIZE) */
+    const size_t min_read_size = base_sftp_read_size * 2;   /* FIXME: magic number! */
+    const size_t max_read_size = base_sftp_read_size * 64;  /* FIXME: magic number! */
+
+    data = (LPSTR)malloc(max_read_size);    /* FIXME: transfer pointer to pConnectSettings struct */
+    if (!data)
+        return SFTP_FAILED;
+
     int len = 0;
-    int maxblocksize = sizeof(data);
+    int maxblocksize = RECV_BLOCK_SIZE;
     if (TextMode)
-        maxblocksize /= 2;  // in worst case,  we have all line breaks (0A)
+        maxblocksize = RECV_BLOCK_SIZE / 2;  // in worst case,  we have all line breaks (0A)
+    /* FIXME: ConvertCrToCrLf has limit data size! */
+    if (!scpdata)
+        maxblocksize = (TextMode) ? base_sftp_read_size / 2 : min_read_size;
     int retval = SFTP_OK;
     SYSTICKS aborttime = -1;
+    SYSTICKS starttime = get_sys_ticks();
+    bool read_interrupted = false;
     do {
         if (scpdata) {
             if (scpremain <= 0)
@@ -3474,10 +3487,22 @@ int SftpDownloadFileW(SERVERID serverid, LPCWSTR RemoteName, LPCWSTR LocalName, 
             sizeloaded += len;    // the unconverted size!
             if (TextMode)
                 len = ConvertCrToCrLf(data, len, &LastWasCr);
-            if (!WriteFile(localfile, &data, len, &written, NULL) || (int)written != len){
+            if (!WriteFile(localfile, data, len, &written, NULL) || (int)written != len){
                 retval = SFTP_WRITEFAILED;
                 break;
             }
+            if (!scpdata && !TextMode) {
+                if (read_interrupted) {
+                    if (maxblocksize / 2 >= min_read_size)
+                        maxblocksize /= 2;
+                } else {
+                    if (maxblocksize * 2 <= max_read_size)
+                        maxblocksize *= 2;
+                }
+            }
+            read_interrupted = false;
+        } else {
+            read_interrupted = true;
         }
         // Always,  for aborting!
         if (UpdatePercentBar(serverid, GetPercent(sizeloaded, filesize))) {
@@ -3503,6 +3528,12 @@ int SftpDownloadFileW(SERVERID serverid, LPCWSTR RemoteName, LPCWSTR LocalName, 
         }
     } while (len > 0);
 
+    if (filesize > 300*1000*1000) {
+        char txt[64];
+        INT64 speed = (sizeloaded * 1000) / (get_ticks_between(starttime) * 1024);
+        sprintf(txt, "Download speed = %d KiB/s", (int)speed);
+        ShowStatus(txt);
+    }
     int retval2 = CloseRemote(serverid, remotefilesftp, remotefilescp, true, GetPercent(sizeloaded, filesize));
     if (retval2 != SFTP_OK)
         ConnectSettings->neednewchannel = true;
@@ -3518,6 +3549,9 @@ int SftpDownloadFileW(SERVERID serverid, LPCWSTR RemoteName, LPCWSTR LocalName, 
     // Auto-resume if read failed in the middle, and we downloaded at least one byte since the last call
     if (retval != SFTP_ABORT && retval != SFTP_WRITEFAILED && sizeloaded < filesize && sizeloaded > resumepos && !ConnectSettings->scponly)
         retval = SFTP_PARTIAL;
+
+    if (data)
+        free(data);
     return retval;
 }
 
