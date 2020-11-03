@@ -1,9 +1,17 @@
 #pragma once
 
 #include "global.h"
+
+#ifdef SFTP_ALLINONE
+#include <libssh2_config.h>
+#include <libssh2.h>
+#include <libssh2_sftp.h>
+#else
 #include "libssh2_config.h"
 #include "libssh2.h"
 #include "libssh2_sftp.h"
+#endif
+
 #include "libssh2_error.h"
 #include "multiserver.h"
 #include "utils.h"

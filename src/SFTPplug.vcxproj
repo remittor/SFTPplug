@@ -28,6 +28,7 @@
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <CharacterSet>MultiByte</CharacterSet>
     <PlatformToolset>v140_xp</PlatformToolset>
+    <PlatformToolset Condition="'$(SFTP_ALLINONE)'=='1'">v140</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Label="Configuration" Condition="'$(Configuration)'=='Release'">
     <WholeProgramOptimization>true</WholeProgramOptimization>
@@ -76,12 +77,14 @@
     <Link>
       <TargetMachine>MachineX86</TargetMachine>
       <MinimumRequiredVersion>5.01</MinimumRequiredVersion>
+      <MinimumRequiredVersion Condition="'$(SFTP_ALLINONE)'=='1'">6.00</MinimumRequiredVersion>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Platform)'=='x64'">
     <Link>
       <TargetMachine>MachineX64</TargetMachine>
       <MinimumRequiredVersion>5.02</MinimumRequiredVersion>
+      <MinimumRequiredVersion Condition="'$(SFTP_ALLINONE)'=='1'">6.00</MinimumRequiredVersion>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>

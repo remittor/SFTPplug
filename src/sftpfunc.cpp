@@ -45,7 +45,9 @@ LPCSTR gDisplayName;
 LPCSTR gIniFileName;
 int g_focusset = 0;
 
+#ifndef SFTP_ALLINONE
 HINSTANCE sshlib = NULL;
+#endif
 bool loadOK, loadAgent;
 
 void EncryptString(LPCTSTR pszPlain, LPTSTR pszEncrypted, UINT cchEncrypted);
@@ -105,6 +107,8 @@ void CopyStringA2W(pConnectSettings ConnectSettings, LPCSTR instr, LPWSTR outstr
     }
 }
 
+
+#ifndef SFTP_ALLINONE
 
 static FARPROC GetProcAddress2(HMODULE hModule, LPCSTR lpProcName) noexcept
 {
@@ -257,7 +261,7 @@ bool LoadSSHLib() noexcept
     SetErrorMode(olderrormode);
     loadOK = true;
     loadAgent = true;
-        
+
     // the following will load all the functions!
     #define FUNCDEF(r, f, p) f=(t##f)GetProcAddress2(sshlib,  #f)
     #define FUNCDEF2(r, f, p) f=(t##f)GetProcAddressAgent(sshlib,  #f)
@@ -267,6 +271,17 @@ bool LoadSSHLib() noexcept
 
     return loadOK;
 }
+
+#else
+
+bool LoadSSHLib() noexcept
+{
+    loadOK = true;
+    loadAgent = true;
+    return true;
+}
+
+#endif  /* SFTP_ALLINONE */
 
 extern "C"
 void kbd_callback(LPCSTR name, int name_len,
@@ -873,6 +888,7 @@ static int SftpAuthPageant(pConnectSettings ConnectSettings, LPCSTR progressbuf,
         strlcat(buf, buf1, sizeof(buf)-1);
         ShowStatus(buf);
         while ((auth = libssh2_agent_userauth(agent, ConnectSettings->user, identity)) == LIBSSH2_ERROR_EAGAIN);
+#ifndef SFTP_ALLINONE
         if (auth == LIBSSH2_ERROR_REQUIRE_KEYBOARD) {     /* FIXME: patch libssh2 */
             *auth_pw = SSH_AUTH_KEYBOARD;
             FIN(SSH_AUTH_KEYBOARD);
@@ -881,6 +897,7 @@ static int SftpAuthPageant(pConnectSettings ConnectSettings, LPCSTR progressbuf,
             *auth_pw = SSH_AUTH_PASSWORD;
             FIN(SSH_AUTH_PASSWORD);
         }
+#endif
         FIN_IF(auth == 0, 0);   /* OK */
         prev_identity = identity;
     }
@@ -1012,6 +1029,7 @@ static int SftpAuthPubKey(pConnectSettings ConnectSettings, LPCSTR progressbuf, 
             break;
         IsSocketReadable(ConnectSettings->sock);  // sleep to avoid 100% CPU!
     }
+#ifndef SFTP_ALLINONE
     if (auth == LIBSSH2_ERROR_REQUIRE_KEYBOARD) {
         *auth_pw = SSH_AUTH_KEYBOARD;
         FIN(SSH_AUTH_KEYBOARD);
@@ -1020,6 +1038,7 @@ static int SftpAuthPubKey(pConnectSettings ConnectSettings, LPCSTR progressbuf, 
         *auth_pw = SSH_AUTH_PASSWORD;
         FIN(SSH_AUTH_PASSWORD);
     }
+#endif
     if (auth) {
         SftpLogLastError("libssh2_userauth_publickey_fromfile: ", auth);
         ShowErrorId(IDS_ERR_AUTH_PUBKEY);

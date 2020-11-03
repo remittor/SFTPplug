@@ -4,7 +4,9 @@
     <_PropertySheetDisplayName>SFTPplug</_PropertySheetDisplayName>
     <TargetName>sftpplug</TargetName>
     <IntDir>$(SolutionDir)\.intermediates\$(ProjectName)\$(Platform)_$(Configuration)\</IntDir>
+    <LibDir>$(SolutionDir)\lib\$(Platform)_$(Configuration)\</LibDir>
     <BinDir>$(SolutionDir)\bin\$(Platform)_$(Configuration)\</BinDir>
+    <ExtDir>$(SolutionDir)\ext\</ExtDir>
     <SrcDir>$(SolutionDir)\src\</SrcDir>
     <OutDir>$(BinDir)</OutDir>
     <TargetExt>.wfx</TargetExt>
@@ -19,15 +21,14 @@
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
       <CompileAs>Default</CompileAs>
       <ExceptionHandling>Sync</ExceptionHandling>
-      <AdditionalIncludeDirectories>
+      <ForcedIncludeFiles>global.h</ForcedIncludeFiles>
+      <AdditionalIncludeDirectories Condition="'$(SFTP_ALLINONE)'=='1'">
+        $(ExtDir)\libssh2\include;
+        $(ExtDir)\libressl-msvc\src\include;
       </AdditionalIncludeDirectories>
       <DisableSpecificWarnings>4244;4267;4996</DisableSpecificWarnings>
-      <PreprocessorDefinitions>
-        _USRDLL;
-        SFTPPLUG_EXPORTS;
-        _WIN32_WINNT=0x0501;
-        %(PreprocessorDefinitions)
-      </PreprocessorDefinitions>
+      <PreprocessorDefinitions Condition="'$(SFTP_ALLINONE)'!='1'">_USRDLL;_WIN32_WINNT=0x0501;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions Condition="'$(SFTP_ALLINONE)'=='1'">_USRDLL;_WIN32_WINNT=0x0600;SFTP_ALLINONE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ObjectFileName>$(IntDir)</ObjectFileName>
       <ProgramDataBaseFileName>$(OutDir)$(TargetName).pdb</ProgramDataBaseFileName>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
@@ -37,7 +38,9 @@
     </ResourceCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
-      <AdditionalDependencies>Ws2_32.lib;shlwapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(LibDir)</AdditionalLibraryDirectories>
+      <AdditionalDependencies Condition="'$(SFTP_ALLINONE)'!='1'">Ws2_32.lib;shlwapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies Condition="'$(SFTP_ALLINONE)'=='1'">Ws2_32.lib;shlwapi.lib;libssh2.lib;libcrypto.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <ModuleDefinitionFile>sftpplug.def</ModuleDefinitionFile>
       <OptimizeReferences>true</OptimizeReferences>

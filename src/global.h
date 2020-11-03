@@ -12,6 +12,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <shlwapi.h>
+#include <ws2tcpip.h>
 
 #ifndef RESOURCE_ENUM_VALIDATE
 #error "Please, update Microsoft SDKs to 6.1 or later"
@@ -34,7 +35,8 @@ typedef const VOID *LPCVOID;
 #define _itoa_s(nr,buf,sz,rdx)  _itoa((nr),(buf),(rdx))
 #endif
 
+#ifdef __cplusplus
 #include "fsplugin.h"
-
+#endif
 
 

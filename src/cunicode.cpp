@@ -1,4 +1,5 @@
 #include "cunicode.h"
+#include "shellapi.h"
 
 extern tProgressProcW ProgressProcW;
 extern tLogProcW      LogProcW;

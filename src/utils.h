@@ -1,6 +1,7 @@
 #pragma once
 
 #include "global.h"
+#include <time.h>
 
 
 #define FIN_IF(_cond_,_code_) do { if ((_cond_)) { hr = _code_; goto fin; } } while(0)

@@ -37,6 +37,10 @@
  * OF SUCH DAMAGE.
  */
 
+#ifdef SFTP_ALLINONE
+#error "Static linking uses a other header file! Check project settings!"
+#endif
+
 #ifndef LIBSSH2_H
 #define LIBSSH2_H 1
 
