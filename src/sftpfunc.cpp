@@ -3620,7 +3620,7 @@ int SftpUploadFileW(SERVERID serverid, LPCWSTR LocalName, LPCWSTR RemoteName, bo
     LIBSSH2_SFTP_HANDLE *remotefilesftp = NULL;
     LIBSSH2_CHANNEL *remotefilescp = NULL;
     HANDLE localfile;
-    char data[SEND_BLOCK_SIZE];   // 32k does NOT work!
+    LPSTR data = NULL;
     char thename[wdirtypemax];    // remote name in server encoding
     int rc;
     pConnectSettings ConnectSettings = (pConnectSettings)serverid;
@@ -3802,10 +3802,18 @@ int SftpUploadFileW(SERVERID serverid, LPCWSTR LocalName, LPCWSTR RemoteName, bo
                 libssh2_session_set_blocking(ConnectSettings->session, 1);
             }
 
-            SYSTICKS starttime;
+            const size_t MAX_SFTP_OUTGOING_SIZE = 30000;     /* Look libssh2 MAX_SFTP_OUTGOING_SIZE */
+            size_t data_size = MAX_SFTP_OUTGOING_SIZE * 32;
+            data = (LPSTR)malloc(data_size);    /* FIXME: transfer pointer to pConnectSettings struct */
+            if (!data)
+                return SFTP_FAILED;
+            if (TextMode) {
+                data_size = scpdata ? SEND_BLOCK_SIZE : MAX_SFTP_OUTGOING_SIZE / 2;
+            }
+            SYSTICKS starttime = get_sys_ticks();
             DWORD len;
             retval = SFTP_OK;
-            while (ReadFile(localfile, &data, sizeof(data), &len, NULL) && len > 0) {
+            while (ReadFile(localfile, data, (DWORD)data_size, &len, NULL) && len > 0) {
                 int dataread, written;
                 dataread = len;
                 char* pdata = data;
@@ -3842,13 +3850,13 @@ int SftpUploadFileW(SERVERID serverid, LPCWSTR LocalName, LPCWSTR RemoteName, bo
 
                     if (UpdatePercentBar(serverid, GetPercent(sizeloaded, filesize))) {
                         // graceful abort if last reply was EAGAIN
-                        starttime = get_sys_ticks();
+                        SYSTICKS abort_time = get_sys_ticks();
                         while (written == LIBSSH2_ERROR_EAGAIN) {
                             if (scpdata)
                                 written = libssh2_channel_write(remotefilescp, pdata, len);
                             else
                                 written = libssh2_sftp_write(remotefilesftp, pdata, len);
-                            if (get_ticks_between(starttime) > 5000)   /* FIXME: magic number! */
+                            if (get_ticks_between(abort_time) > 5000)   /* FIXME: magic number! */
                                 break;
                             IsSocketWritable(ConnectSettings->sock);  // sleep to avoid 100% CPU!
                         }
@@ -3862,6 +3870,12 @@ int SftpUploadFileW(SERVERID serverid, LPCWSTR LocalName, LPCWSTR RemoteName, bo
                         retval = SFTP_WRITEFAILED;
                     break;
                 }
+            }
+            if (filesize > 300*1000*1000) {
+                char txt[64];
+                INT64 speed = (sizeloaded * 1000) / (get_ticks_between(starttime) * 1024);
+                sprintf(txt, "Upload speed = %d KiB/s", (int)speed);
+                ShowStatus(txt);
             }
             int retval2 = CloseRemote(serverid, remotefilesftp, remotefilescp, true, GetPercent(sizeloaded, filesize));
             if (retval2 != SFTP_OK)
@@ -3920,6 +3934,8 @@ int SftpUploadFileW(SERVERID serverid, LPCWSTR LocalName, LPCWSTR RemoteName, bo
             }
         }
     }
+    if (data)
+        free(data);
     return retval;
 }
 
