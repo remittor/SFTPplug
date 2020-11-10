@@ -1,7 +1,7 @@
 #include <windows.h>
 #include "multiserver.h"
 #include "utils.h"
-#include "fsplugin.h"
+#include "sftpplug.h"
 
 // save servers in linked list
 
@@ -308,6 +308,7 @@ bool SetServerIdForName(LPCSTR displayname, SERVERID newid) noexcept
             PSERVERENTRY newentry = CreateSrvEntry(displayname, MS_FLAG_BKGR | MS_FLAG_ADDTOHEAD);
             if (newentry) {
                 newentry->threadid = tid;
+                SetServerId(newentry, newid, MS_FLAG_BKGR);
                 /* FIXME: set `rv` to true? */
             }
         }
