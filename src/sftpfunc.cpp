@@ -3402,9 +3402,10 @@ int SftpDownloadFileW(SERVERID serverid, LPCWSTR RemoteName, LPCWSTR LocalName, 
             DWORD szh;
             sizeloaded = GetFileSize(localfile, &szh);
             sizeloaded |= ((__int64)szh) << 32;
-            SetFilePointer(localfile, 0, NULL, SEEK_END);
+            UINT64 offset = 0;
+            SetFilePointerEx(localfile, *(PLARGE_INTEGER)&offset, NULL, FILE_BEGIN);   /* FIXME: check result! */
 
-            if (filesize <= sizeloaded || sizeloaded >= ((__int64)1 << 31) - 1) {  // local file is larger!
+            if (filesize <= sizeloaded) {
                 CloseHandle(localfile);
                 if (SFTP_OK != CloseRemote(serverid, remotefilesftp, remotefilescp, false, 0)) {
                     ConnectSettings->neednewchannel = true;
@@ -3431,9 +3432,9 @@ int SftpDownloadFileW(SERVERID serverid, LPCWSTR RemoteName, LPCWSTR LocalName, 
     }
 
     if (Resume && sizeloaded > 0) {   // seek!
-        libssh2_sftp_seek(remotefilesftp, (int)sizeloaded);
+        libssh2_sftp_seek64(remotefilesftp, (libssh2_uint64_t)sizeloaded);
         // Better check whether seek was successful!
-        if (libssh2_sftp_tell(remotefilesftp) != (DWORD)sizeloaded) {
+        if (libssh2_sftp_tell64(remotefilesftp) != (libssh2_uint64_t)sizeloaded) {
             if (SFTP_OK!=CloseRemote(serverid, remotefilesftp, remotefilescp, false, 0)) {
                 ConnectSettings->neednewchannel = true;
             }
@@ -3753,7 +3754,7 @@ int SftpUploadFileW(SERVERID serverid, LPCWSTR LocalName, LPCWSTR RemoteName, bo
         }
         if (remotefilescp || remotefilesftp) {
             if (Resume) {   // seek!
-                DWORD resumepos = 0;
+                UINT64 resumepos = 0;
                 LIBSSH2_SFTP_ATTRIBUTES attr;
                 memset(&attr, 0, sizeof(attr));
                 attr.flags = LIBSSH2_SFTP_ATTR_PERMISSIONS;
@@ -3767,10 +3768,10 @@ int SftpUploadFileW(SERVERID serverid, LPCWSTR LocalName, LPCWSTR RemoteName, bo
                         IsSocketReadable(ConnectSettings->sock);  // sleep to avoid 100% CPU!
                 } while (rc == LIBSSH2_ERROR_EAGAIN);
                 if (rc == 0) {
-                    resumepos = (DWORD)attr.filesize;
-                    libssh2_sftp_seek(remotefilesftp, resumepos);
+                    resumepos = attr.filesize;
+                    libssh2_sftp_seek64(remotefilesftp, resumepos);
                     // Better check whether seek was successful!
-                    if (libssh2_sftp_tell(remotefilesftp) != resumepos) {
+                    if ((TextMode && resumepos >= INT_MAX) || libssh2_sftp_tell64(remotefilesftp) != resumepos) {
                         if (SFTP_OK!=CloseRemote(serverid, remotefilesftp, remotefilescp, false, 0)) {
                             ConnectSettings->neednewchannel = true;
                         }           
@@ -3778,9 +3779,9 @@ int SftpUploadFileW(SERVERID serverid, LPCWSTR LocalName, LPCWSTR RemoteName, bo
                         return SFTP_WRITEFAILED;
                     }
                     if (Resume && TextMode) {
-                        resumepos = GetTextUploadResumePos(localfile, resumepos);
+                        resumepos = GetTextUploadResumePos(localfile, (DWORD)resumepos);
                     }
-                    if (resumepos == 0xFFFFFFFF || resumepos != SetFilePointer(localfile, resumepos, NULL, SEEK_SET)) {
+                    if ((TextMode && resumepos == 0xFFFFFFFF) || !SetFilePointerEx(localfile, *(PLARGE_INTEGER)&resumepos, NULL, FILE_BEGIN)) {
                         if (SFTP_OK != CloseRemote(serverid, remotefilesftp, remotefilescp, false, 0)) {
                             ConnectSettings->neednewchannel = true;
                         }           
