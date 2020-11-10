@@ -70,6 +70,22 @@ static bool MessageLoop(SERVERID serverid) noexcept
     return aborted;
 }
 
+void LogMsg(LPCSTR fmt, ...) noexcept
+{
+    char buf[512];
+    va_list argptr;
+    va_start(argptr, fmt);
+    int len = _vsnprintf(buf, _countof(buf)-2, fmt, argptr);
+    va_end(argptr);
+    if (len < 0) {
+        strcpy_s(buf, _countof(buf), "<INCORRECT-INPUT-DATA> ");
+        strcat_s(buf, _countof(buf), fmt);
+    } else {
+        buf[len] = 0;
+    }
+    LogProc(PluginNumber, MSGTYPE_DETAILS, buf);
+}
+
 void ShowStatus(LPCSTR status) noexcept
 {
     if (LogProc)
