@@ -16,21 +16,17 @@
 #include "cunicode.h"
 #include "ftpdir.h"
 
-#include <map>
-
 bool serverfieldchangedbyuser = false;
 char Global_TransferMode = 'I';  //I=Binary,  A=Ansi,  X=Auto
 WCHAR Global_TextTypes[1024];
 char global_detectcrlf = 0;
-
-std::map<HWND, pConnectSettings> ghWndToConnectSettings;
 
 const bool SSH_ScpNo2GBLimit = true;
 const bool SSH_ScpCanSendKeepAlive = true;
 const bool SSH_ScpNeedBlockingMode = false;   // Need to use blocking mode for SCP?
 const bool SSH_ScpNeedQuote = false;          // Need to use double quotes "" around names with spaces for SCP?
 
-VOID CALLBACK TimerProc(HWND hwnd, UINT uMsg, UINT_PTR idEvent, DWORD dwTime);
+VOID CALLBACK TimerProc(HWND hwnd, UINT uMsg, UINT_PTR idEvent, DWORD dwTime) noexcept;
 
 LIBSSH2_CHANNEL * ConnectChannel(LIBSSH2_SESSION *session) noexcept;
 bool SendChannelCommand(LIBSSH2_SESSION * session, LIBSSH2_CHANNEL * channel, LPCSTR command) noexcept;
@@ -2589,11 +2585,12 @@ SERVERID SftpConnectToServer(LPCSTR DisplayName, LPCSTR inifilename, LPCSTR over
     if (ConnectSettings->keepAliveIntervalSeconds > 0) {
         if (!(ConnectSettings->scpfordata && SSH_ScpNeedBlockingMode) && SSH_ScpCanSendKeepAlive && ConnectSettings->hWndKeepAlive == NULL) {
             // only needed in non-blocking mode
-            ConnectSettings->hWndKeepAlive = ::CreateWindow("Static", "SFTPPlug keep alive window", WS_CHILD, 0, 0, 0, 0, HWND_MESSAGE, NULL, NULL, NULL);
-
-            if (ConnectSettings->hWndKeepAlive != NULL) {
-                ghWndToConnectSettings[ConnectSettings->hWndKeepAlive] = ConnectSettings;
-                ::SetTimer(ConnectSettings->hWndKeepAlive, 1000, ConnectSettings->keepAliveIntervalSeconds * 1000, TimerProc);
+            LPCSTR wndName = "SFTPPlug keep alive window";
+            ConnectSettings->hWndKeepAlive = ::CreateWindowA("Static", wndName, WS_CHILD, 0, 0, 0, 0, HWND_MESSAGE, NULL, NULL, NULL);
+            if (ConnectSettings->hWndKeepAlive) {
+                UINT_PTR nIDEvent = (UINT_PTR)ConnectSettings;
+                UINT uElapse = ConnectSettings->keepAliveIntervalSeconds * 1000;
+                ::SetTimer(ConnectSettings->hWndKeepAlive, nIDEvent, uElapse, TimerProc);
             }
         }
         else if (!SSH_ScpCanSendKeepAlive) {
@@ -2675,7 +2672,6 @@ int SftpCloseConnection(SERVERID serverid)
     }
     if (ConnectSettings->hWndKeepAlive) {
         ::DestroyWindow(ConnectSettings->hWndKeepAlive);
-        ghWndToConnectSettings[ConnectSettings->hWndKeepAlive] = NULL;
         ConnectSettings->hWndKeepAlive = NULL;
     }
     return SFTP_FAILED;
@@ -5239,12 +5235,12 @@ fin:
     return hr;
 }
 
-VOID CALLBACK TimerProc(HWND hwnd, UINT uMsg, UINT_PTR idEvent, DWORD dwTime)
+VOID CALLBACK TimerProc(HWND hwnd, UINT uMsg, UINT_PTR idEvent, DWORD dwTime) noexcept
 {
-    if (uMsg == WM_TIMER && idEvent == 1000) {    /* FIXME: magic number! */
+    if (uMsg == WM_TIMER) {
         ::KillTimer(hwnd, idEvent);
-        pConnectSettings ConnectSettings = ghWndToConnectSettings[hwnd];
-        if (ConnectSettings) {
+        if (idEvent > USHRT_MAX) {
+            pConnectSettings ConnectSettings = (pConnectSettings)idEvent;
             LogMsg("KEEP-ALIVE \\%s", ConnectSettings->DisplayName);
             int iRet = 0;
             libssh2_keepalive_send(ConnectSettings->session, &iRet);
