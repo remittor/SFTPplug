@@ -21,11 +21,6 @@ char Global_TransferMode = 'I';  //I=Binary,  A=Ansi,  X=Auto
 WCHAR Global_TextTypes[1024];
 char global_detectcrlf = 0;
 
-const bool SSH_ScpNo2GBLimit = true;
-const bool SSH_ScpCanSendKeepAlive = true;
-const bool SSH_ScpNeedBlockingMode = false;   // Need to use blocking mode for SCP?
-const bool SSH_ScpNeedQuote = false;          // Need to use double quotes "" around names with spaces for SCP?
-
 VOID CALLBACK TimerProc(HWND hwnd, UINT uMsg, UINT_PTR idEvent, DWORD dwTime) noexcept;
 
 LIBSSH2_CHANNEL * ConnectChannel(LIBSSH2_SESSION *session) noexcept;
@@ -2583,7 +2578,7 @@ SERVERID SftpConnectToServer(LPCSTR DisplayName, LPCSTR inifilename, LPCSTR over
     LogProc(PluginNumber, MSGTYPE_CONNECT, connbuf);
 
     if (ConnectSettings->keepAliveIntervalSeconds > 0) {
-        if (!(ConnectSettings->scpfordata && SSH_ScpNeedBlockingMode) && SSH_ScpCanSendKeepAlive && ConnectSettings->hWndKeepAlive == NULL) {
+        if (ConnectSettings->hWndKeepAlive == NULL) {
             // only needed in non-blocking mode
             LPCSTR wndName = "SFTPPlug keep alive window";
             ConnectSettings->hWndKeepAlive = ::CreateWindowA("Static", wndName, WS_CHILD, 0, 0, 0, 0, HWND_MESSAGE, NULL, NULL, NULL);
@@ -2592,10 +2587,6 @@ SERVERID SftpConnectToServer(LPCSTR DisplayName, LPCSTR inifilename, LPCSTR over
                 UINT uElapse = ConnectSettings->keepAliveIntervalSeconds * 1000;
                 ::SetTimer(ConnectSettings->hWndKeepAlive, nIDEvent, uElapse, TimerProc);
             }
-        }
-        else if (!SSH_ScpCanSendKeepAlive) {
-            strlcpy(connbuf, "KEEP-ALIVE not supported by libssh2. Version >= 1.2.5 required!", sizeof(connbuf)-1);
-            LogProc(PluginNumber, MSGTYPE_CONNECT, connbuf);
         }
         libssh2_keepalive_config(ConnectSettings->session, 0, ConnectSettings->keepAliveIntervalSeconds);
     }
@@ -3330,14 +3321,8 @@ int SftpDownloadFileW(SERVERID serverid, LPCWSTR RemoteName, LPCWSTR LocalName, 
     if (scpdata && filesize >= INT_MAX) { // scp supports max 2 GB
         // libssh2 version >= 1.7.0 supports file size > 2 GB (for downloading)
         // But SCP on server side needs to be 64bit
-        if (!SSH_ScpNo2GBLimit || (ConnectSettings->scpserver64bit != 1 && !ConnectSettings->scpserver64bittemporary)) {
-            if (!SSH_ScpNo2GBLimit) {
-                if (ConnectSettings->scponly) {
-                    ShowErrorId(IDS_DLL_VERSION);
-                    FIN(SFTP_ABORT);
-                }
-                scpdata = false; // fallback to SFTP
-            } else if (ConnectSettings->scponly) {
+        if (ConnectSettings->scpserver64bit != 1 && !ConnectSettings->scpserver64bittemporary) {
+            if (ConnectSettings->scponly) {
                 char errorstr[256];
                 LoadStr(errorstr, IDS_NO_2GB_SUPPORT);
                 if (!RequestProc(PluginNumber, RT_MsgYesNo, "SFTP Error", errorstr, NULL, 0))
@@ -3369,15 +3354,8 @@ int SftpDownloadFileW(SERVERID serverid, LPCWSTR RemoteName, LPCWSTR LocalName, 
         FIN(SFTP_FAILED);
 
     if (scpdata) {
-        char filename2[wdirtypemax];
-        if (SSH_ScpNeedQuote && strchr(filename, ' ') != 0) {
-            filename2[0] = '"';
-            strlcpy(filename2 + 1, filename, sizeof(filename2)-3);
-            strlcat(filename2, "\"", sizeof(filename2)-1);
-        } else
-            strlcpy(filename2, filename, sizeof(filename2)-1);
         do {
-            remotefilescp = libssh2_scp_recv2(ConnectSettings->session, filename2, &fileinfoscp);
+            remotefilescp = libssh2_scp_recv2(ConnectSettings->session, filename, &fileinfoscp);
             if (EscapePressed()) {
                 ConnectSettings->neednewchannel = true;
                 break;
@@ -3677,22 +3655,14 @@ int SftpUploadFileW(SERVERID serverid, LPCWSTR LocalName, LPCWSTR RemoteName, bo
     if (scpdata && filesize >= INT_MAX) {  // scp supports max 2 GB
         // libssh2 version >= 1.2.6 supports file size > 2 GB
         // But SCP on server side needs to be 64bit
-        if (!SSH_ScpNo2GBLimit || (ConnectSettings->scpserver64bit != 1 && !ConnectSettings->scpserver64bittemporary)) {
-            if (!SSH_ScpNo2GBLimit) {
-                if (ConnectSettings->scponly) {
-                    ShowErrorId(IDS_DLL_VERSION);
-                    FIN(SFTP_ABORT);
-                }
+        if (ConnectSettings->scpserver64bit != 1 && !ConnectSettings->scpserver64bittemporary) {
+            char errorstr[256];
+            LoadStr(errorstr, IDS_NO_2GB_SUPPORT);
+            if (!RequestProc(PluginNumber, RT_MsgYesNo, "SFTP Error", errorstr, NULL, 0)) {
+                FIN_IF(ConnectSettings->scponly, SFTP_ABORT);
                 scpdata = false; // fallback to SFTP
             } else {
-                char errorstr[256];
-                LoadStr(errorstr, IDS_NO_2GB_SUPPORT);
-                if (!RequestProc(PluginNumber, RT_MsgYesNo, "SFTP Error", errorstr, NULL, 0)) {
-                    FIN_IF(ConnectSettings->scponly, SFTP_ABORT);
-                    scpdata = false; // fallback to SFTP
-                } else {
-                    ConnectSettings->scpserver64bittemporary = true;
-                }
+                ConnectSettings->scpserver64bittemporary = true;
             }
         }
     }
@@ -3704,14 +3674,6 @@ int SftpUploadFileW(SERVERID serverid, LPCWSTR LocalName, LPCWSTR RemoteName, bo
     ShowStatusW(msgbuf);
 
     if (scpdata) {
-        char thename2[wdirtypemax];
-        if (SSH_ScpNeedQuote && strchr(thename, ' ') != 0) {
-            thename2[0] = '"';
-            strlcpy(thename2+1, thename, sizeof(thename2)-3);
-            strlcat(thename2, "\"", sizeof(thename2)-1);
-        } else {
-            strlcpy(thename2, thename, sizeof(thename2)-1);
-        }
         if (TextMode) {
             INT64 filesize2 = GetTextModeFileSize(localfile, true);
             if (filesize2 == -1)
@@ -3730,11 +3692,7 @@ int SftpUploadFileW(SERVERID serverid, LPCWSTR LocalName, LPCWSTR RemoteName, bo
             }
         }
         do {
-            if (!SSH_ScpNo2GBLimit)
-                remotefilescp = libssh2_scp_send_ex(ConnectSettings->session, thename2, ConnectSettings->filemod, (int)filesize, mtime, 0);
-            else
-                remotefilescp = libssh2_scp_send64(ConnectSettings->session, thename2, ConnectSettings->filemod, (libssh2_uint64_t)filesize, mtime, 0);
-
+            remotefilescp = libssh2_scp_send64(ConnectSettings->session, thename, ConnectSettings->filemod, (libssh2_uint64_t)filesize, mtime, 0);
             if (EscapePressed()) {
                 ConnectSettings->neednewchannel = true;
                 break;
@@ -3795,16 +3753,6 @@ int SftpUploadFileW(SERVERID serverid, LPCWSTR LocalName, LPCWSTR RemoteName, bo
         }            
     }
 
-    // Switch back to blocking mode,  because libssh2_channel_write is faulty in non-blocking mode!!!
-
-    bool needblockingmode = scpdata && SSH_ScpNeedBlockingMode;
-
-    if (needblockingmode) {
-        SetBlockingSocket(ConnectSettings->sock, true);
-        libssh2_channel_set_blocking(remotefilescp, 1);
-        libssh2_session_set_blocking(ConnectSettings->session, 1);
-    }
-
     const size_t MAX_SFTP_OUTGOING_SIZE = 30000;     /* Look libssh2 MAX_SFTP_OUTGOING_SIZE */
     size_t data_size = MAX_SFTP_OUTGOING_SIZE * 32;
     data = (LPSTR)malloc(data_size);    /* FIXME: transfer pointer to pConnectSettings struct */
@@ -3831,12 +3779,6 @@ int SftpUploadFileW(SERVERID serverid, LPCWSTR LocalName, LPCWSTR RemoteName, bo
             if (written >= 0) {
                 if (written > len) {  // libssh2_channel_write sometiomes returns values > len!
                     hr = SFTP_WRITEFAILED;
-                    // return to non-blocking mode
-                    if (needblockingmode) {
-                        SetBlockingSocket(ConnectSettings->sock, false);
-                        libssh2_channel_set_blocking(remotefilescp, 0);
-                        libssh2_session_set_blocking(ConnectSettings->session,  0);
-                    }
                     written = -1;
                     break;
                 }
@@ -3882,12 +3824,6 @@ int SftpUploadFileW(SERVERID serverid, LPCWSTR LocalName, LPCWSTR RemoteName, bo
 
     if (filesize > 300*1000*1000)
         LogMsg("Upload speed = %I64d KiB/s", (sizeloaded * 1000) / (get_ticks_between(starttime) * 1024));
-
-    if (needblockingmode) {
-        // return to non-blocking mode
-        SetBlockingSocket(ConnectSettings->sock, false);
-        libssh2_session_set_blocking(ConnectSettings->session, 0);
-    }
 
     FILETIME ft;
     if (hr == SFTP_OK && GetFileTime(localfile, NULL, NULL, &ft)) {
