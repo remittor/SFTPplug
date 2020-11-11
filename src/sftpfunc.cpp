@@ -2720,6 +2720,7 @@ bool IsNeedQuotesW(LPCWSTR str)
 int SftpFindFirstFileW(SERVERID serverid, LPCWSTR remotedir, LPVOID * davdataptr)
 {
     int hr = -1;
+    LIBSSH2_CHANNEL * channel = NULL;
     LIBSSH2_SFTP_HANDLE * dirhandle = NULL;
     char dirname[wdirtypemax];
     pConnectSettings ConnectSettings = (pConnectSettings)serverid;
@@ -2739,17 +2740,17 @@ int SftpFindFirstFileW(SERVERID serverid, LPCWSTR remotedir, LPVOID * davdataptr
     }
 
     if (ConnectSettings->scponly) {
-        LIBSSH2_CHANNEL * channel = ConnectChannel(ConnectSettings->session);
+        channel = ConnectChannel(ConnectSettings->session);
         if (!channel) {
             ShowStatus("no channel");
             FIN(-2);
         }
         char commandbuf[wdirtypemax+100];
+        commandbuf[0] = 0;
         int trycustom = ConnectSettings->trycustomlistcommand;
         if (trycustom >= 1)
             strcpy(commandbuf, "export LC_ALL=C\n");
-        else
-            commandbuf[0] = 0;
+
         int lencmd0 = strlen(commandbuf);
         strlcat(commandbuf, "ls -la ", sizeof(commandbuf)-1);
         int lencmd1 = strlen(commandbuf);
@@ -2772,7 +2773,6 @@ int SftpFindFirstFileW(SERVERID serverid, LPCWSTR remotedir, LPVOID * davdataptr
             if (ConnectSettings->detailedlog)
                 ShowStatus(commandbuf + ((i == 1) ? 0 : lencmd0));
             if (!SendChannelCommand(ConnectSettings->session, channel, commandbuf + ((i == 1) ? 0 : lencmd0))) {
-                DisconnectShell(channel);
                 ShowStatus("send command failed");
                 FIN(-4);
             }
@@ -2782,7 +2782,7 @@ int SftpFindFirstFileW(SERVERID serverid, LPCWSTR remotedir, LPVOID * davdataptr
             do {
                 errorbuf[0] = 0;
                 rc = libssh2_channel_read(channel, errorbuf, 1);
-                rcerr = libssh2_channel_read_stderr(channel, errorbuf, 1023);
+                rcerr = libssh2_channel_read_stderr(channel, errorbuf, countof(errorbuf)-1);
                 if (rcerr > 0) {
                     errorbuf[rcerr] = 0;
                     if (ConnectSettings->detailedlog)
@@ -2807,6 +2807,7 @@ int SftpFindFirstFileW(SERVERID serverid, LPCWSTR remotedir, LPVOID * davdataptr
         }
 
         SCP_DATA* scpd = (SCP_DATA*)malloc(sizeof(SCP_DATA));
+        FIN_IF(!scpd, -7);
         scpd->channel = channel;
         scpd->msgbuf[0] = 0;
         scpd->errbuf[0] = 0;
@@ -2816,7 +2817,7 @@ int SftpFindFirstFileW(SERVERID serverid, LPCWSTR remotedir, LPVOID * davdataptr
     }
 
     if (!ReconnectSFTPChannelIfNeeded(ConnectSettings))
-        FIN(-6);
+        FIN(-10);
     
     /* Request a dir listing via SFTP */
     ConnectSettings->findstarttime = get_sys_ticks();
@@ -2839,7 +2840,7 @@ int SftpFindFirstFileW(SERVERID serverid, LPCWSTR remotedir, LPVOID * davdataptr
                 break;
             ConnectSettings->neednewchannel = true;  // force reconnect
             if (!ReconnectSFTPChannelIfNeeded(ConnectSettings))
-                FIN(-8);
+                FIN(-11);
         } else
             IsSocketReadable(ConnectSettings->sock);  // sleep to avoid 100% CPU!
 
@@ -2869,6 +2870,9 @@ int SftpFindFirstFileW(SERVERID serverid, LPCWSTR remotedir, LPVOID * davdataptr
     FIN(0);
 
 fin:
+    if (hr && channel)
+        DisconnectShell(channel);
+
     wcslcpy(ConnectSettings->lastactivepath, remotedir, countof(ConnectSettings->lastactivepath)-1);
     return (hr == 0) ? SFTP_OK : SFTP_FAILED;
 }
