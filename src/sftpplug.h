@@ -1,7 +1,6 @@
 #pragma once
 
 #include "utils.h"
-#include "fsplugin.h"
 
 extern HINSTANCE hinst;
 extern int PluginNumber;

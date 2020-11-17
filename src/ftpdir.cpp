@@ -1,4 +1,3 @@
-#include <windows.h>
 #include "utils.h"
 #include "ftpdir.h"
 

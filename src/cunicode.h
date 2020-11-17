@@ -1,7 +1,6 @@
 #pragma once
 
-#include <windows.h>
-#include "fsplugin.h"
+#include "global.h"
 #include "utils.h"
 #include "CVTUTF.H"
 

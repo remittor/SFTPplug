@@ -1,8 +1,6 @@
-#include <windows.h>
+#include "utils.h"
 #include <time.h>
 #include <stdio.h>
-#include "utils.h"
-#include "fsplugin.h"
 #include <intrin.h>
 
 LPSTR strcatbackslash(LPSTR thedir)

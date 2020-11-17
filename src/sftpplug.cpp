@@ -1,15 +1,13 @@
 // sertransplg.cpp : Defines the entry point for the DLL application.
 //
 
-#include <windows.h>
+#include "sftpplug.h"
 #include <stdlib.h>
-#include "fsplugin.h"
 #include "utils.h"
 #include "res/resource.h"
 #include "sftpfunc.h"
 #include "multiserver.h"
 #include "cunicode.h"
-#include "sftpplug.h"
 
 HINSTANCE hinst = NULL;
 HWND hWndMain = NULL;

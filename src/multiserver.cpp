@@ -1,6 +1,5 @@
-#include <windows.h>
-#include "multiserver.h"
 #include "utils.h"
+#include "multiserver.h"
 #include "sftpplug.h"
 
 // save servers in linked list

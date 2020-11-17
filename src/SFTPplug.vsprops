@@ -21,7 +21,6 @@
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
       <CompileAs>Default</CompileAs>
       <ExceptionHandling>Sync</ExceptionHandling>
-      <ForcedIncludeFiles>global.h</ForcedIncludeFiles>
       <AdditionalIncludeDirectories Condition="'$(SFTP_ALLINONE)'=='1'">
         $(ExtDir)\libssh2\include;
         $(ExtDir)\libressl-msvc\src\include;
