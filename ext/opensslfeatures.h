@@ -24,6 +24,8 @@
 #define OPENSSL_NO_HW_PADLOCK
 #endif
 
+#define OPENSSL_NO_ERR
+
 /*
  * OPENSSL_NO_* flags that currently appear in OpenSSL.
  */
@@ -65,7 +67,6 @@
 #define OPENSSL_NO_EC_NISTP_64_GCC_128
 #define OPENSSL_NO_EGD
 /* #define OPENSSL_NO_ENGINE */
-/* #define OPENSSL_NO_ERR */
 /* #define OPENSSL_NO_FUZZ_AFL */
 /* #define OPENSSL_NO_FUZZ_LIBFUZZER */
 /* #define OPENSSL_NO_GOST */
