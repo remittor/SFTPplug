@@ -13,6 +13,9 @@
       <UniqueIdentifier>{13f29309-9b4e-4a58-bf17-5fe018ce4364}</UniqueIdentifier>
       <Extensions>ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe</Extensions>
     </Filter>
+    <Filter Include="BST">
+      <UniqueIdentifier>{8a4c99cf-9dfc-4e92-95eb-e7e2ce05ed69}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="cunicode.cpp">
@@ -35,6 +38,12 @@
     </ClCompile>
     <ClCompile Include="ftpdir.cpp">
       <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="bst\srw_lock.cpp">
+      <Filter>BST</Filter>
+    </ClCompile>
+    <ClCompile Include="bst\logx.cpp">
+      <Filter>BST</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -70,6 +79,48 @@
     </ClInclude>
     <ClInclude Include="global.h">
       <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="bst\bst.hpp">
+      <Filter>BST</Filter>
+    </ClInclude>
+    <ClInclude Include="bst\config.hpp">
+      <Filter>BST</Filter>
+    </ClInclude>
+    <ClInclude Include="bst\core.hpp">
+      <Filter>BST</Filter>
+    </ClInclude>
+    <ClInclude Include="bst\list.hpp">
+      <Filter>BST</Filter>
+    </ClInclude>
+    <ClInclude Include="bst\memory.hpp">
+      <Filter>BST</Filter>
+    </ClInclude>
+    <ClInclude Include="bst\mutex.hpp">
+      <Filter>BST</Filter>
+    </ClInclude>
+    <ClInclude Include="bst\noncopyable.hpp">
+      <Filter>BST</Filter>
+    </ClInclude>
+    <ClInclude Include="bst\nondynamic.hpp">
+      <Filter>BST</Filter>
+    </ClInclude>
+    <ClInclude Include="bst\scoped_lock.hpp">
+      <Filter>BST</Filter>
+    </ClInclude>
+    <ClInclude Include="bst\srw_lock.hpp">
+      <Filter>BST</Filter>
+    </ClInclude>
+    <ClInclude Include="bst\string.hpp">
+      <Filter>BST</Filter>
+    </ClInclude>
+    <ClInclude Include="bst\scope_guard.hpp">
+      <Filter>BST</Filter>
+    </ClInclude>
+    <ClInclude Include="bst\log.hpp">
+      <Filter>BST</Filter>
+    </ClInclude>
+    <ClInclude Include="bst\logx.hpp">
+      <Filter>BST</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

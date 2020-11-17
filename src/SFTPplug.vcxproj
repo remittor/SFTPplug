@@ -88,6 +88,8 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="bst\logx.cpp" />
+    <ClCompile Include="bst\srw_lock.cpp" />
     <ClCompile Include="cunicode.cpp" />
     <ClCompile Include="CVTUTF.C" />
     <ClCompile Include="ftpdir.cpp" />
@@ -97,6 +99,20 @@
     <ClCompile Include="utils.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="bst\bst.hpp" />
+    <ClInclude Include="bst\config.hpp" />
+    <ClInclude Include="bst\core.hpp" />
+    <ClInclude Include="bst\list.hpp" />
+    <ClInclude Include="bst\log.hpp" />
+    <ClInclude Include="bst\logx.hpp" />
+    <ClInclude Include="bst\memory.hpp" />
+    <ClInclude Include="bst\mutex.hpp" />
+    <ClInclude Include="bst\noncopyable.hpp" />
+    <ClInclude Include="bst\nondynamic.hpp" />
+    <ClInclude Include="bst\scoped_lock.hpp" />
+    <ClInclude Include="bst\scope_guard.hpp" />
+    <ClInclude Include="bst\srw_lock.hpp" />
+    <ClInclude Include="bst\string.hpp" />
     <ClInclude Include="cunicode.h" />
     <ClInclude Include="CVTUTF.H" />
     <ClInclude Include="fsplugin.h" />
