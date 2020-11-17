@@ -16,6 +16,14 @@
 #define OPENSSL_NO_SSL2
 #define OPENSSL_NO_STORE
 
+#ifndef OPENSSL_NO_ASM
+#define OPENSSL_NO_ASM
+#endif
+
+#ifndef OPENSSL_NO_HW_PADLOCK
+#define OPENSSL_NO_HW_PADLOCK
+#endif
+
 /*
  * OPENSSL_NO_* flags that currently appear in OpenSSL.
  */
@@ -23,9 +31,6 @@
 /* #define OPENSSL_NO_AFALGENG */
 /* #define OPENSSL_NO_ALGORITHMS */
 /* #define OPENSSL_NO_ARIA */
-#ifndef OPENSSL_NO_ASM
-#define OPENSSL_NO_ASM
-#endif
 #define OPENSSL_NO_ASYNC
 /* #define OPENSSL_NO_AUTOALGINIT */
 /* #define OPENSSL_NO_AUTOERRINIT */
@@ -66,9 +71,6 @@
 /* #define OPENSSL_NO_GOST */
 #define OPENSSL_NO_HEARTBEATS
 /* #define OPENSSL_NO_HW */
-#ifndef OPENSSL_NO_HW_PADLOCK
-#define OPENSSL_NO_HW_PADLOCK
-#endif
 /* #define OPENSSL_NO_IDEA */
 /* #define OPENSSL_NO_INLINE_ASM */
 #define OPENSSL_NO_MD2
