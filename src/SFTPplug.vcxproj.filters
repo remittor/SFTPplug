@@ -45,6 +45,15 @@
     <ClCompile Include="bst\logx.cpp">
       <Filter>BST</Filter>
     </ClCompile>
+    <ClCompile Include="main.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="excatch.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="plugin.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="cunicode.h">
@@ -121,6 +130,15 @@
     </ClInclude>
     <ClInclude Include="bst\logx.hpp">
       <Filter>BST</Filter>
+    </ClInclude>
+    <ClInclude Include="excatch.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="fsplugin.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="plugin.h">
+      <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

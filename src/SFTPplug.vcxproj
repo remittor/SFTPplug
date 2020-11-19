@@ -92,8 +92,11 @@
     <ClCompile Include="bst\srw_lock.cpp" />
     <ClCompile Include="cunicode.cpp" />
     <ClCompile Include="CVTUTF.C" />
+    <ClCompile Include="excatch.cpp" />
     <ClCompile Include="ftpdir.cpp" />
+    <ClCompile Include="main.cpp" />
     <ClCompile Include="multiserver.cpp" />
+    <ClCompile Include="plugin.cpp" />
     <ClCompile Include="sftpfunc.cpp" />
     <ClCompile Include="sftpplug.cpp" />
     <ClCompile Include="utils.cpp" />
@@ -115,10 +118,13 @@
     <ClInclude Include="bst\string.hpp" />
     <ClInclude Include="cunicode.h" />
     <ClInclude Include="CVTUTF.H" />
+    <ClInclude Include="excatch.h" />
     <ClInclude Include="fsplugin.h" />
+    <ClInclude Include="fsplugin.hpp" />
     <ClInclude Include="ftpdir.h" />
     <ClInclude Include="global.h" />
     <ClInclude Include="multiserver.h" />
+    <ClInclude Include="plugin.h" />
     <ClInclude Include="sftpfunc.h" />
     <ClInclude Include="sftpplug.h" />
     <ClInclude Include="sshdynfunctions.h" />
