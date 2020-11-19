@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "fsplugin.hpp"
+
 #pragma pack(push, 1)
 
 // ids for FsGetFile

@@ -12,9 +12,7 @@
 HINSTANCE hinst = NULL;
 HWND hWndMain = NULL;
 
-#define defininame "sftpplug.ini"
-#define templatefile "sftpplug.tpl"
-char inifilename[MAX_PATH] = defininame;
+char inifilename[MAX_PATH] = "sftpplug.ini";
 char pluginname[] = "SFTP";
 char defrootname[] = "Secure FTP";
 
@@ -39,29 +37,16 @@ tRequestProcW  RequestProcW = NULL;
 tCryptProc     CryptProc = NULL;
 
 
-BOOL APIENTRY DllMain( HANDLE hModule, DWORD ul_reason_for_call, LPVOID lpReserved)
-{
-    if (ul_reason_for_call == DLL_PROCESS_ATTACH) {
-        hinst = (HINSTANCE)hModule;
-        LoadStringA(hinst, IDS_F7NEW, s_f7newconnection, countof(s_f7newconnection)-1);
-        awlcopy(s_f7newconnectionW, s_f7newconnection, countof(s_f7newconnectionW)-1);
-        LoadStringA(hinst, IDS_QUICKCONNECT, s_quickconnect, countof(s_quickconnect)-1);
-        awlcopy(s_quickconnectW, s_quickconnect, countof(s_quickconnectW)-1);
-    }
-    if (ul_reason_for_call == DLL_PROCESS_DETACH) {
-        /* nothing */
-    }
-    return true;
-}
-
 /* FIXME: replace returnrd type to enum FS_TASK_CONTINUE / FS_TASK_ABORTED */
 static bool MessageLoop(SERVERID serverid) noexcept
 {
     bool aborted = false;
     pConnectSettings ConnectSettings = (pConnectSettings)serverid;
-    if (ConnectSettings && ProgressProc && get_ticks_between(ConnectSettings->lastpercenttime) > 250) {   /* FIXME: magic number! */
+    if (!g_wfx.m_cb.ProgressProc)
+        return false;
+    if (ConnectSettings && get_ticks_between(ConnectSettings->lastpercenttime) > 250) {   /* FIXME: magic number! */
         // important: also call AFTER soft_aborted is true!!!
-        aborted = (0 != ProgressProc(PluginNumber,  NULL,  NULL,  ConnectSettings->lastpercent));
+        aborted = (0 != ProgressProc(PluginNumber, NULL, NULL, ConnectSettings->lastpercent));
         // allow abort with Escape when there is no progress dialog!
         ConnectSettings->lastpercenttime = get_sys_ticks();
     }
@@ -181,37 +166,6 @@ static LPWSTR cut_srv_name(LPWSTR path)
 }
 
 
-static int _FsInit(int PluginNr)
-{
-    PluginNumber = PluginNr;
-    mainthreadid = GetCurrentThreadId();
-    InitMultiServer();
-    return 0;
-}
-
-int WINAPI FsInit(int PluginNr, tProgressProc pProgressProc, tLogProc pLogProc, tRequestProc pRequestProc)
-{
-    ProgressProc = pProgressProc;
-    LogProc = pLogProc;
-    RequestProc = pRequestProc;
-    return _FsInit(PluginNr);
-}
-
-int WINAPI FsInitW(int PluginNr, tProgressProcW pProgressProcW, tLogProcW pLogProcW, tRequestProcW pRequestProcW)
-{
-    ProgressProcW = pProgressProcW;
-    LogProcW = pLogProcW;
-    RequestProcW = pRequestProcW;
-    return _FsInit(PluginNr);
-}
-
-void WINAPI FsSetCryptCallback(tCryptProc pCryptProc, int CryptoNr, int Flags)
-{
-    CryptProc = pCryptProc;
-    CryptCheckPass = (Flags & FS_CRYPTOPT_MASTERPASS_SET) != 0;
-    CryptoNumber = CryptoNr;
-}
-
 typedef struct {
     LPVOID       sftpdataptr;    /* LIBSSH2_SFTP_HANDLE or SCP_DATA */
     SERVERID     serverid;
@@ -219,24 +173,9 @@ typedef struct {
     bool         rootfindfirst;
 } tLastFindStuct, *pLastFindStuct;
 
-BOOL WINAPI FsDisconnect(LPCSTR DisconnectRoot)
-{
-    char DisplayName[wdirtypemax];
-    GetDisplayNameFromPath(DisconnectRoot, DisplayName, countof(DisplayName)-1);
-    SERVERID serverid = GetServerIdFromName(DisplayName, GetCurrentThreadId());
-    if (serverid) {
-        char connbuf[wdirtypemax];
-        strlcpy(connbuf, "DISCONNECT \\", countof(connbuf)-1);
-        strlcat(connbuf, DisplayName, countof(connbuf)-1);
-        LogProc(PluginNumber, MSGTYPE_DISCONNECT, connbuf);
-        SftpCloseConnection(serverid);
-        SetServerIdForName(DisplayName, NULL); // this frees it too!
-    }
-    return true;
-}
- 
 HANDLE WINAPI FsFindFirstW(LPCWSTR Path, LPWIN32_FIND_DATAW FindData)
 {
+    LOGt("%s", __func__);
     int hr = ERROR_SUCCESS;
     WCHAR remotedir[wdirtypemax];
     char DisplayName[wdirtypemax], PathA[wdirtypemax];
@@ -265,7 +204,7 @@ HANDLE WINAPI FsFindFirstW(LPCWSTR Path, LPWIN32_FIND_DATAW FindData)
     // load server list if user connects directly via URL
     LoadServersFromIni(inifilename, s_quickconnect);
     // only disable the reading within a server!
-    if (disablereading && IsMainThread()) {
+    if (disablereading && g_wfx.IsMainThread()) {
         SetLastError(ERROR_NO_MORE_FILES);
         return INVALID_HANDLE_VALUE;
     }
@@ -330,6 +269,7 @@ HANDLE WINAPI FsFindFirstW(LPCWSTR Path, LPWIN32_FIND_DATAW FindData)
 
 HANDLE WINAPI FsFindFirst(LPCSTR Path, LPWIN32_FIND_DATA FindData)
 {
+    LOGt("%s", __func__);
     WIN32_FIND_DATAW FindDataW;
     WCHAR PathW[wdirtypemax];
     HANDLE retval = FsFindFirstW(awfilenamecopy(PathW, Path), &FindDataW);
@@ -870,35 +810,6 @@ void WINAPI FsStatusInfo(LPCSTR RemoteDir, int InfoStartEnd, int InfoOperation)
     }
 }
 
-void WINAPI FsGetDefRootName(LPSTR DefRootName, int maxlen)
-{
-    strlcpy(DefRootName, defrootname, maxlen);
-}
-
-// use default location,  but our own ini file name!
-void WINAPI FsSetDefaultParams(FsDefaultParamStruct * dps)
-{
-    strlcpy(inifilename, dps->DefaultIniName, MAX_PATH-1);
-    LPSTR p = strrchr(inifilename, '\\');
-    if (p)
-        p[1] = 0;
-    else
-        inifilename[0] = 0;
-    strlcat(inifilename, defininame, countof(inifilename)-1);
-
-    // copy ini template from plugin dir to ini location if it exists!
-    char templatename[MAX_PATH];
-    DWORD len = GetModuleFileName(hinst, templatename, countof(templatename)-1);
-    if (len > 0) {
-        LPSTR p = strrchr(templatename, '\\');
-        if (p) {
-            p[1] = 0;
-            strlcat(templatename, templatefile, countof(templatename)-1);
-        }
-        CopyFileA(templatename, inifilename, true);  // only copy if target doesn't exist
-    }
-}
-
 int WINAPI FsExtractCustomIcon(LPCSTR RemoteName, int ExtractFlags, HICON * TheIcon)
 {
     if (strlen(RemoteName) > 1) {
@@ -920,11 +831,6 @@ int WINAPI FsExtractCustomIcon(LPCSTR RemoteName, int ExtractFlags, HICON * TheI
         }
     } 
     return FS_ICON_USEDEFAULT;
-}
-
-int WINAPI FsGetBackgroundFlags(void)
-{
-    return BG_DOWNLOAD | BG_UPLOAD | BG_ASK_USER;
 }
 
 int WINAPI FsServerSupportsChecksumsW(LPCWSTR RemoteName)
