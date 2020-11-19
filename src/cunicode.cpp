@@ -36,29 +36,6 @@ LPWSTR awlcopyCP(int codepage, LPWSTR outname, LPCSTR inname, size_t maxlen) noe
     return NULL;
 }
 
-LPWSTR wcslcpy(LPWSTR str1, LPCWSTR str2, size_t imaxlen) noexcept
-{
-    if (wcslen(str2) > imaxlen) {
-        wcsncpy(str1, str2, imaxlen - 1);
-        str1[imaxlen - 1] = 0;
-    } else {
-        wcscpy(str1, str2);
-    }
-    return str1;
-}
-
-LPWSTR wcslcat(LPWSTR str1, LPCWSTR str2, size_t imaxlen) noexcept
-{
-    size_t len1 = wcslen(str1);
-    if (wcslen(str2) + len1 > imaxlen) {
-        wcsncpy(str1 + len1, str2, imaxlen - 1 - len1);
-        str1[imaxlen - 1] = 0;
-    } else {
-        wcscat(str1,str2);
-    }
-    return str1;
-}
-
 int ConvUTF16toUTF8(LPCWSTR inbuf, size_t inlen, LPSTR outbuf, size_t outmax, bool nullterm) noexcept
 {
     if (nullterm)

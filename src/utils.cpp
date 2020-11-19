@@ -42,34 +42,45 @@ void cutlastbackslash(LPSTR thedir)
         thedir[len - 1] = 0;
 }
 
-LPSTR strlcpy(LPSTR p, LPCSTR p2, size_t maxlen)
+size_t strlcpy(LPSTR dst, LPCSTR src, size_t size)
 {
-    if (strlen(p2) >= maxlen) {
-        strncpy(p, p2, maxlen);
-        p[maxlen] = 0;
-    } else {
-        strcpy(p, p2);
-    }
-    return p;
+    strncpy(dst, src, size);
+    dst[size - 1] = 0;
+    return strlen(src);
 }
 
-LPWSTR wcslcpy2(LPWSTR p, LPCWSTR p2, size_t maxlen)
+size_t wcslcpy(LPWSTR dst, LPCWSTR src, size_t size)
 {
-    if (wcslen(p2) >= maxlen) {
-        wcsncpy(p, p2, maxlen);
-        p[maxlen] = 0;
-    } else {
-        wcscpy(p, p2);
-    }
-    return p;
+    wcsncpy(dst, src, size);
+    dst[size - 1] = 0;
+    return wcslen(src);
 }
 
-//strlcat is different from strncat:
-//strncat wants maximum number of bytes to copy
-//strlcat wants maximum size of target buffer!!!
-LPSTR strlcat(LPSTR p, LPCSTR p2, size_t maxlen)
+size_t wcslcpy2(LPWSTR dst, LPCWSTR src, size_t size)
 {
-    return strncat(p, p2, maxlen - strlen(p));
+    return wcslcpy(dst, src, size);
+}
+
+size_t strlcat(LPSTR dst, LPCSTR src, size_t size)
+{
+    size_t dlen = strlen(dst);
+    size_t slen = strlen(src);
+    if (size > dlen + 1) {
+        strncat(dst, src, size - (dlen + 1));
+        dst[size - 1] = 0;
+    }
+    return dlen + slen;
+}
+
+size_t wcslcat(LPWSTR dst, LPCWSTR src, size_t size)
+{
+    size_t dlen = wcslen(dst);
+    size_t slen = wcslen(src);
+    if (size > dlen + 1) {
+        wcsncat(dst, src, size - (dlen + 1));
+        dst[size - 1] = 0;
+    }
+    return dlen + slen;
 }
 
 LPSTR ReplaceBackslashBySlash(LPSTR thedir)

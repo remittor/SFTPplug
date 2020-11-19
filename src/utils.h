@@ -11,9 +11,12 @@
 
 #define LoadStr(s, i)  LoadString(hinst, (i), (s), countof(s)-1)
 
-LPSTR  strlcpy(LPSTR p, LPCSTR p2, size_t maxlen);
-LPSTR  strlcat(LPSTR p, LPCSTR p2, size_t maxlen);
-LPWSTR wcslcpy2(LPWSTR p, LPCWSTR p2, size_t maxlen);
+size_t strlcpy(LPSTR dst, LPCSTR src, size_t size);
+size_t strlcat(LPSTR dst, LPCSTR src, size_t size);
+size_t wcslcpy(LPWSTR dst, LPCWSTR src, size_t size);
+size_t wcslcpy2(LPWSTR dst, LPCWSTR src, size_t size);
+size_t wcslcat(LPWSTR dst, LPCWSTR src, size_t size);
+
 LPSTR  strcatbackslash(LPSTR thedir);
 LPSTR  strlcatforwardslash(LPSTR thedir, size_t maxlen);
 LPSTR  strlcatbackslash(LPSTR thedir, size_t maxlen);

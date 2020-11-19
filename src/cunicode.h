@@ -13,8 +13,6 @@ bool usys() noexcept
     return true;   /* minimal requirements: WinXP and TC 7.51 */
 }
 
-LPWSTR wcslcpy(LPWSTR str1, LPCWSTR str2, size_t imaxlen) noexcept;
-LPWSTR wcslcat(LPWSTR str1, LPCWSTR str2, size_t imaxlen) noexcept;
 LPSTR  walcopy(LPSTR outname, LPCWSTR inname, size_t maxlen) noexcept;
 LPSTR  walcopyCP(int codepage, LPSTR outname, LPCWSTR inname, size_t maxlen) noexcept;
 LPWSTR awlcopy(LPWSTR outname, LPCSTR inname, size_t maxlen) noexcept;
