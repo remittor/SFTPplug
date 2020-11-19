@@ -88,13 +88,13 @@ public:
         set_defaults();
     }
 
-    explicit string_base(const CharT * s, size_t len = 0) noexcept(NT)
+    string_base(const CharT * s, size_t len = 0) noexcept(NT)
     {
         set_defaults();
         assign(s, len);
     }
 
-    explicit string_base(const fmt_string<CharT> fmt, ...) noexcept(NT)
+    string_base(const fmt_string<CharT> fmt, ...) noexcept(NT)
     {
         set_defaults();
         va_list argptr;
@@ -924,6 +924,57 @@ protected:
         m_buf[m_len] = 0;
         return true;
     }
+
+public:
+    int atoi(bool hex = false, size_t pos = 0) noexcept(NT)
+    {
+        INT64 res = atoi64_internal(false, 0, pos, hex);
+        if (res < INT_MIN || res > INT_MAX) {
+            m_last_error = e_convert;
+            BST_THROW(C, 301, "Incorrect string for converting");
+        }
+        return (int)res;
+    }
+
+    int atoi(int defvalue, size_t pos = 0, bool hex = false) noexcept
+    {
+        INT64 res = atoi64_internal(true, defvalue, pos, hex);
+        if (res < INT_MIN || res > INT_MAX) {
+            return defvalue;
+        }
+        return (int)res;
+    }
+
+    INT64 atoi64(bool hex = false, size_t pos = 0) noexcept(NT)
+    {
+        return atoi64_internal(false, 0, pos, hex);
+    }
+
+    INT64 atoi64(INT64 defvalue, size_t pos = 0, bool hex = false) noexcept
+    {
+        return atoi64_internal(true, defvalue, pos, hex);
+    }
+
+protected:
+    INT64 atoi64_internal(bool dv, INT64 defvalue, size_t pos, bool hex) noexcept(NT)
+    {
+        INT64 res;
+        BOOL x;
+        if (is_wstring)
+            x = StrToInt64ExW((LPCWSTR)m_buf + pos, STIF_DEFAULT, &res);
+        else
+            x = StrToInt64ExA((LPCSTR)m_buf + pos, STIF_DEFAULT, &res);
+        if (!x) {
+            if (!dv) {
+                m_last_error = e_convert;
+                BST_THROW(C, 330, "Incorrect string for converting");
+                return 0;
+            }
+            return defvalue;
+        }
+        return res;
+    }
+
 };
 
 
@@ -946,19 +997,27 @@ protected:
         m_content[PreAllocLen + 1] = 0;
     }
 
-public:
-    static_string() noexcept
+public:    
+    enum { max_len = PreAllocLen };
+
+    static_string()
     {
         set_defaults();
     }
 
-    explicit static_string(const CharT * s, size_t len = 0) noexcept(NT)
+    static_string(const CharT * s, size_t len = 0) noexcept(NT)
     {
         set_defaults();
         assign(s, len);
     }
 
-    explicit static_string(const fmt_string<CharT> fmt, ...) noexcept(NT)
+    static_string(const string_base & str) noexcept(NT)
+    {
+        set_defaults();
+        assign(str.c_str(), str.length());
+    }
+
+    static_string(const fmt_string<CharT> fmt, ...) noexcept(NT)
     {        
         set_defaults();
         va_list argptr;
@@ -970,7 +1029,7 @@ public:
     ~static_string() noexcept = default;
 
     /* copy-constructor */
-    static_string(const string_base<CharT> & str) noexcept(NT)
+    static_string(const static_string & str) noexcept(NT)
     {
         set_defaults();
         assign(str.c_data(), str.length());
@@ -991,7 +1050,81 @@ public:
     {
         return false;
     }
+
+    static_string & operator = (const static_string & str) noexcept(NT)
+    {
+        assign(str);
+        return *this;
+    }
+
+    static_string & operator = (const CharT * s) noexcept(NT)
+    {
+        assign(s);
+        return *this;
+    }
+
+    static_string & operator += (const static_string & str) noexcept(NT)
+    {
+        append(str);
+        return *this;
+    }
+
+    static_string & operator += (const CharT * s) noexcept(NT)
+    {
+        append(s);
+        return *this;
+    }
 };
+
+
+template <typename CharT, bool NT = false>
+class const_string : public string_base<CharT, NT>
+{
+public:
+    const_string() noexcept = delete;
+
+    ~const_string() noexcept = default;
+
+    const_string(const CharT * s) noexcept
+    {
+        m_buf = (CharT *)s;
+        m_len = s ? get_length(s) : 0;
+        m_capacity = m_len;
+        m_is_static = true;
+        m_last_error = non_error;
+    }
+
+    const_string(const const_string & str) noexcept
+    {
+        copy_from(str);
+    }
+
+    const_string(const_string && str) noexcept
+    {
+        copy_from(str);
+    }
+
+    const_string(const string_base & str) noexcept
+    {
+        copy_from(str);
+    }
+
+    const_string & operator = (const const_string &) noexcept = delete;
+    const_string & operator = (const_string &&) noexcept = delete;
+
+    CharT * data() noexcept = delete;
+
+protected:
+    void copy_from(const string_base & str) noexcept
+    {
+        m_buf = (CharT *) str.c_str();
+        m_len = m_buf ? str.length() : 0;
+        m_capacity = m_len;
+        m_is_static = true;
+        m_last_error = non_error;
+    }
+};
+
 
 } /* namespace detail */
 
@@ -1003,6 +1136,10 @@ typedef detail::string_base<char>      str;
 typedef detail::string_base<wchar_t>   wstr;
 typedef detail::string_base<UCHAR>     buf;
 
+typedef const detail::const_string<char>     c_str;
+typedef const detail::const_string<wchar_t>  c_wstr;
+typedef const detail::const_string<UCHAR>    c_buf;
+
 template <size_t PreAllocLen, typename CharT>
 using static_string = detail::static_string<PreAllocLen, CharT>;
 
@@ -1012,11 +1149,17 @@ using static_wstr = detail::static_string<PreAllocLen, wchar_t>;
 typedef detail::static_string<BST_MAX_PATH_LEN, wchar_t>  filepath;
 typedef detail::static_string<BST_MAX_NAME_LEN, wchar_t>  filename;
 
+typedef detail::static_string<BST_MAX_PATH_LEN, wchar_t>  wsfp;  /* static string (file path) */
+typedef detail::static_string<BST_MAX_NAME_LEN, wchar_t>  wsfn;  /* static string (file name) */
+
 template <size_t PreAllocLen>
 using static_str = detail::static_string<PreAllocLen, char>;
 
 typedef detail::static_string<BST_MAX_PATH_LEN, char>   filepath_a;
 typedef detail::static_string<BST_MAX_NAME_LEN, char>   filename_a;
+
+typedef detail::static_string<BST_MAX_PATH_LEN, char>   sfp;  /* static string (file path) */
+typedef detail::static_string<BST_MAX_NAME_LEN, char>   sfn;  /* static string (file name) */
 
 template <size_t PreAllocLen>
 using static_buf = detail::static_string<PreAllocLen, UCHAR>;

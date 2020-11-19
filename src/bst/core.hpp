@@ -31,6 +31,14 @@
 #define BST_MKID(x, y) _BST_MKID(x, y)
 #define BST_GENSYM(x) BST_MKID(x, __COUNTER__)
 
+#ifdef _M_X64
+#define BST_VA_START(ap, x)  ((void)(__va_start(&ap, x)))
+#else
+#define BST_VA_START(ap, x)  va_start(ap, x)
+#endif
+
+#define BST_ARGS template<typename ... Args>
+
 
 namespace bst {
 
