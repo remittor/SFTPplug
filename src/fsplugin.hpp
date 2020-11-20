@@ -5,16 +5,41 @@
 namespace wfx {
 
 // ids for FsGetFile
-enum class FILE : int {
-    OK                  = 0,
-    EXISTS              = 1,
-    NOTFOUND            = 2,
-    READERROR           = 3,
-    WRITEERROR          = 4,
-    USERABORT           = 5,
-    NOTSUPPORTED        = 6,
-    EXISTSRESUMEALLOWED = 7,
+enum class File : int {
+    Ok                  = 0,
+    Exists              = 1,
+    NotFound            = 2,
+    ReadError           = 3,
+    WriteError          = 4,
+    UserAbort           = 5,
+    NotSupported        = 6,
+    ExistsResumeAllowed = 7,
 };
+
+enum class Exec : int {
+    Ok         =  0,
+    Error      =  1,
+    YourSelf   = -1,
+    SymLink    = -2,
+};
+
+enum class CopyFlags : int {
+    Overwrite            = 0x01,
+    Resume               = 0x02,
+    Move                 = 0x04,
+    ExistsSameCase       = 0x08,
+    ExistsDifferentCase  = 0x10,
+};
+
+inline CopyFlags operator + (const CopyFlags & a1, const CopyFlags & a2)
+{
+    return (CopyFlags)((int)a1 | (int)a2);
+}
+
+inline CopyFlags operator | (const CopyFlags & a1, const CopyFlags & a2)
+{
+    return (CopyFlags)((int)a1 | (int)a2);
+}
 
 // flags for tRequestProc
 enum class RT : int {
@@ -26,35 +51,35 @@ enum class RT : int {
     PasswordFirewall = 5,
     TargetDir        = 6,
     URL              = 7,
-    MsgOK            = 8,
+    MsgOk            = 8,
     MsgYesNo         = 9,
-    MsgOKCancel      = 10,
+    MsgOkCancel      = 10,
 };
 
 // flags for tLogProc
-enum class MSGTYPE : int {
-    CONNECT           = 1,
-    DISCONNECT        = 2,
-    DETAILS           = 3,
-    TRANSFERCOMPLETE  = 4,
-    CONNECTCOMPLETE   = 5,
-    IMPORTANTERROR    = 6,
-    OPERATIONCOMPLETE = 7,
+enum class MsgType : int {
+    Connect           = 1,
+    Disconnect        = 2,
+    Details           = 3,
+    TransferComplete  = 4,
+    ConnectComplete   = 5,
+    ImportantError    = 6,
+    OperationComplete = 7,
 };
 
-enum class CRYPT : int {
-    SAVE_PASSWORD       = 1,
-    LOAD_PASSWORD       = 2,
-    LOAD_PASSWORD_NO_UI = 3, // Load password only if master password has already been entered!
-    COPY_PASSWORD       = 4, // Copy encrypted password to new connection name
-    MOVE_PASSWORD       = 5, // Move password when renaming a connection
-    DELETE_PASSWORD     = 6, // Delete password
+enum class CryptPass : int {
+    Save        = 1,
+    Load        = 2,
+    LoadNoUI    = 3, // Load password only if master password has already been entered!
+    Copy        = 4, // Copy encrypted password to new connection name
+    Move        = 5, // Move password when renaming a connection
+    Delete      = 6, // Delete password
 };
 
 // Progress task status
-enum class TASK : int {
-    CONTINUE = 0,
-    ABORTED  = 1,
+enum class TaskStatus : int {
+    Continue = 0,
+    Aborted  = 1,
 };
 
 

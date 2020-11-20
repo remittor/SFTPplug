@@ -249,7 +249,7 @@ bool Plugin::RequestCodePage(int & cp)
 
 bool Plugin::RequestMsgOK(bst::c_str & title, bst::c_str & text)
 {
-    return RequestProc(RT::MsgOK, title, text, nullptr);
+    return RequestProc(RT::MsgOk, title, text, nullptr);
 }
 
 bool Plugin::RequestMsgYesNo(bst::c_str & title, bst::c_str & text)
@@ -257,7 +257,7 @@ bool Plugin::RequestMsgYesNo(bst::c_str & title, bst::c_str & text)
     return RequestProc(RT::MsgYesNo, title, text, nullptr);
 }
 
-void Plugin::LogMessageEx(bool err, MSGTYPE mt, size_t rid, LPCSTR fmtstr, ...)
+void Plugin::LogMessageEx(bool err, MsgType mt, size_t rid, LPCSTR fmtstr, ...)
 {
     BST_THROW_IF(!m_cb.LogProc, C, 5011, "LogProc is null");
     bst::sfp buf;
@@ -281,7 +281,7 @@ void Plugin::LogMessageEx(bool err, MSGTYPE mt, size_t rid, LPCSTR fmtstr, ...)
         RequestMsgOK("SFTP Error", buf.c_str());
 }
 
-void Plugin::LogMessageEx(bool err, MSGTYPE mt, size_t rid, LPCWSTR fmtstr, ...)
+void Plugin::LogMessageEx(bool err, MsgType mt, size_t rid, LPCWSTR fmtstr, ...)
 {
     BST_THROW_IF(!m_cb.LogProcW, C, 5012, "LogProc is null");
     bst::wsfp buf;
@@ -302,54 +302,54 @@ void Plugin::LogMessageEx(bool err, MSGTYPE mt, size_t rid, LPCWSTR fmtstr, ...)
     }
     m_cb.LogProcW(m_PluginNumber, (int)mt, buf.c_str());
     if (err)
-        RequestProc(RT::MsgOK, L"SFTP Error", buf.c_str());
+        RequestProc(RT::MsgOk, L"SFTP Error", buf.c_str());
 }
 
-TASK Plugin::ProgressProc(bst::c_str & SourceName, bst::c_str & TargetName, int PercentDone)
+TaskStatus Plugin::ProgressProc(bst::c_str & SourceName, bst::c_str & TargetName, int PercentDone)
 {
     BST_THROW_IF(!m_cb.ProgressProc, C, 7001, "ProgressProc is null");
-    BOOL x = m_cb.ProgressProc(m_PluginNumber, SourceName.c_str(), TargetName.c_str(), PercentDone);
-    return (x == TRUE) ? TASK::ABORTED : TASK::CONTINUE;
+    int x = m_cb.ProgressProc(m_PluginNumber, SourceName.c_str(), TargetName.c_str(), PercentDone);
+    return (x == 1) ? TaskStatus::Aborted : TaskStatus::Continue;
 }
 
-TASK Plugin::ProgressProc(bst::c_wstr & SourceName, bst::c_wstr & TargetName, int PercentDone)
+TaskStatus Plugin::ProgressProc(bst::c_wstr & SourceName, bst::c_wstr & TargetName, int PercentDone)
 {
     BST_THROW_IF(!m_cb.ProgressProcW, C, 7002, "ProgressProc is null");
-    BOOL x = m_cb.ProgressProcW(m_PluginNumber, SourceName.c_str(), TargetName.c_str(), PercentDone);
-    return (x == TRUE) ? TASK::ABORTED : TASK::CONTINUE;
+    int x = m_cb.ProgressProcW(m_PluginNumber, SourceName.c_str(), TargetName.c_str(), PercentDone);
+    return (x == 1) ? TaskStatus::Aborted : TaskStatus::Continue;
 }
 
-bool Plugin::CryptPassword(wfx::CRYPT mode, bst::c_str & ConnectionName, bst::c_str & Password)
+bool Plugin::CryptPassword(CryptPass mode, bst::c_str & ConnectionName, bst::c_str & Password)
 {
-    BST_THROW_IF(mode == CRYPT::LOAD_PASSWORD || mode == CRYPT::LOAD_PASSWORD_NO_UI, C, 3001, "Incorrect argument");
+    BST_THROW_IF(mode == CryptPass::Load || mode == CryptPass::LoadNoUI, C, 3001, "Incorrect argument");
     if (!m_cb.CryptProc)
         return false;
     int rc = m_cb.CryptProc(m_PluginNumber, m_CryptoNumber, (int)mode, ConnectionName.c_str(), (LPSTR)Password.c_str(), 0);
-    return (rc == (int)FILE::OK) ? true : false;
+    return (rc == (int)File::Ok) ? true : false;
 }
 
 bool Plugin::PasswordLoad(bst::c_str & ConnectionName, bst::sfn & Password, bool no_ui)
 {
     if (!m_cb.CryptProc)
         return false;
-    wfx::CRYPT mode = no_ui ? CRYPT::LOAD_PASSWORD_NO_UI : CRYPT::LOAD_PASSWORD;
+    CryptPass mode = no_ui ? CryptPass::LoadNoUI : CryptPass::Load;
     int rc = m_cb.CryptProc(m_PluginNumber, m_CryptoNumber, (int)mode, ConnectionName.c_str(), Password.data(), (int)Password.max_len);
-    return (rc == (int)FILE::OK) ? true : false;
+    return (rc == (int)File::Ok) ? true : false;
 }
 
 bool Plugin::PasswordSave(bst::c_str & ConnectionName, bst::c_str & Password)
 {
-    return CryptPassword(CRYPT::SAVE_PASSWORD, ConnectionName, Password);
+    return CryptPassword(CryptPass::Save, ConnectionName, Password);
 }
 
 bool Plugin::PasswordDelete(bst::c_str & ConnectionName)
 {
-    return CryptPassword(CRYPT::DELETE_PASSWORD, ConnectionName, nullptr);
+    return CryptPassword(CryptPass::Delete, ConnectionName, nullptr);
 }
 
 bool Plugin::PasswordCopy(bst::c_str & OldName, bst::c_str & NewName, bool move)
 {
-    return CryptPassword(move ? CRYPT::MOVE_PASSWORD : CRYPT::COPY_PASSWORD, OldName, NewName);
+    return CryptPassword(move ? CryptPass::Move : CryptPass::Copy, OldName, NewName);
 }
 
 bool Plugin::disconnect(LPCSTR DisconnectRoot)
@@ -359,9 +359,7 @@ bool Plugin::disconnect(LPCSTR DisconnectRoot)
     GetDisplayNameFromPath(DisconnectRoot, DisplayName.data(), DisplayName.max_len);
     SERVERID serverid = GetServerIdFromName(DisplayName.c_str(), GetCurrentThreadId());
     if (serverid) {
-        bst::sfp txt = "DISCONNECT \\";
-        txt += DisplayName;
-        LogMessageEx(false, MSGTYPE::DISCONNECT, 0, txt.c_str());
+        LogMessageEx(false, MsgType::Disconnect, 0, "DISCONNECT \\%s", DisplayName.c_str());
         SftpCloseConnection(serverid);
         SetServerIdForName(DisplayName.c_str(), NULL); // this frees it too!
     }

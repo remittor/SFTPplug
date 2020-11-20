@@ -84,17 +84,17 @@ public:
     bool RequestMsgOK(bst::c_str & title, bst::c_str & text);
     bool RequestMsgYesNo(bst::c_str & title, bst::c_str & text);
 
-    void LogMessageEx(bool err, MSGTYPE mt, size_t rid, LPCSTR fmtstr, ...);
-    void LogMessageEx(bool err, MSGTYPE mt, size_t rid, LPCWSTR fmtstr, ...);
+    void LogMessageEx(bool err, MsgType mt, size_t rid, LPCSTR fmtstr, ...);
+    void LogMessageEx(bool err, MsgType mt, size_t rid, LPCWSTR fmtstr, ...);
     BST_ARGS void LogMsg(size_t rid, bst::c_str & fmt, Args...args);
     BST_ARGS void LogMsg(size_t rid, bst::c_wstr & fmt, Args...args);
     BST_ARGS void LogErr(size_t rid, bst::c_str & fmt, Args...args);
     BST_ARGS void LogErr(size_t rid, bst::c_wstr & fmt, Args...args);
 
-    TASK ProgressProc(bst::c_str & SourceName, bst::c_str & TargetName, int PercentDone);
-    TASK ProgressProc(bst::c_wstr & SourceName, bst::c_wstr & TargetName, int PercentDone);
+    TaskStatus ProgressProc(bst::c_str & SourceName, bst::c_str & TargetName, int PercentDone);
+    TaskStatus ProgressProc(bst::c_wstr & SourceName, bst::c_wstr & TargetName, int PercentDone);
 
-    bool CryptPassword(wfx::CRYPT mode, bst::c_str & ConnectionName, bst::c_str & Password);
+    bool CryptPassword(CryptPass mode, bst::c_str & ConnectionName, bst::c_str & Password);
     bool PasswordLoad(bst::c_str & ConnectionName, bst::sfn & Password, bool no_ui = false);
     bool PasswordSave(bst::c_str & ConnectionName, bst::c_str & Password);
     bool PasswordDelete(bst::c_str & ConnectionName);
@@ -112,22 +112,22 @@ protected:
 
 BST_ARGS void Plugin::LogMsg(size_t rid, bst::c_str & fmt, Args...args)
 {
-    LogMessageEx(false, MSGTYPE::DETAILS, rid, fmt.c_str(), args...);
+    LogMessageEx(false, MsgType::Details, rid, fmt.c_str(), args...);
 }
 
 BST_ARGS void Plugin::LogMsg(size_t rid, bst::c_wstr & fmt, Args...args)
 {
-    LogMessageEx(false, MSGTYPE::DETAILS, rid, fmt.c_str(), args...);
+    LogMessageEx(false, MsgType::Details, rid, fmt.c_str(), args...);
 }
 
 BST_ARGS void Plugin::LogErr(size_t rid, bst::c_str & fmt, Args...args)
 {
-    LogMessageEx(true, MSGTYPE::DETAILS, rid, fmt.c_str(), args...);
+    LogMessageEx(true, MsgType::Details, rid, fmt.c_str(), args...);
 }
 
 BST_ARGS void Plugin::LogErr(size_t rid, bst::c_wstr & fmt, Args...args)
 {
-    LogMessageEx(true, MSGTYPE::DETAILS, rid, fmt.c_str(), args...);
+    LogMessageEx(true, MsgType::Details, rid, fmt.c_str(), args...);
 }
 
 
