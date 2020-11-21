@@ -123,9 +123,6 @@ public:
         m_capacity = str.m_capacity;
         m_is_static = str.m_is_static;
         m_last_error = str.m_last_error;
-        str.m_buf = nullptr;
-        str.m_len = 0;
-        str.m_capacity = 0;
     }
 
     bool is_static() const noexcept
@@ -931,7 +928,7 @@ public:
         INT64 res = atoi64_internal(false, 0, pos, hex);
         if (res < INT_MIN || res > INT_MAX) {
             m_last_error = e_convert;
-            BST_THROW(C, 301, "Incorrect string for converting");
+            BST_THROW_IF(!NT, C, 301, "Incorrect string for converting");
         }
         return (int)res;
     }
@@ -967,7 +964,7 @@ protected:
         if (!x) {
             if (!dv) {
                 m_last_error = e_convert;
-                BST_THROW(C, 330, "Incorrect string for converting");
+                BST_THROW_IF(!NT, C, 330, "Incorrect string for converting");
                 return 0;
             }
             return defvalue;
@@ -1087,26 +1084,22 @@ public:
 
     const_string(const CharT * s) noexcept
     {
-        m_buf = (CharT *)s;
-        m_len = s ? get_length(s) : 0;
-        m_capacity = m_len;
-        m_is_static = true;
-        m_last_error = non_error;
+        clone(s);
     }
 
     const_string(const const_string & str) noexcept
     {
-        copy_from(str);
+        clone(str.c_str(), str.length());
     }
 
     const_string(const_string && str) noexcept
     {
-        copy_from(str);
+        clone(str.c_str(), str.length());
     }
 
     const_string(const string_base & str) noexcept
     {
-        copy_from(str);
+        clone(str.c_str(), str.length());
     }
 
     const_string & operator = (const const_string &) noexcept = delete;
@@ -1115,12 +1108,12 @@ public:
     CharT * data() noexcept = delete;
 
 protected:
-    void copy_from(const string_base & str) noexcept
+    void clone(const CharT * s, size_t slen = 0) noexcept
     {
-        m_buf = (CharT *) str.c_str();
-        m_len = m_buf ? str.length() : 0;
+        m_buf = (CharT *)s;
+        m_len = !m_buf ? 0 : (slen ? slen : get_length(s));
         m_capacity = m_len;
-        m_is_static = true;
+        m_is_static = true;    /* for disable free m_buf */
         m_last_error = non_error;
     }
 };
