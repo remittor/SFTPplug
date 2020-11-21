@@ -56,6 +56,8 @@ protected:
     size_t     m_len;
     size_t     m_capacity;
     bool       m_is_static;
+    bool       m_is_clone;
+    bool       m_dummy;
     error_code m_last_error;
 
     enum { is_string  = std::is_same<CharT, char>::value };
@@ -69,6 +71,8 @@ protected:
         m_len = 0;
         m_capacity = 0;
         m_is_static = false;
+        m_is_clone = false;
+        m_dummy = false;
         m_last_error = non_error;
     }
 
@@ -122,6 +126,8 @@ public:
         m_len = str.m_len;
         m_capacity = str.m_capacity;
         m_is_static = str.m_is_static;
+        m_is_clone = true;
+        m_dummy = false;
         m_last_error = str.m_last_error;
     }
 
@@ -150,18 +156,22 @@ public:
 
     void clear() noexcept
     {
-        m_len = 0;
-        if (m_buf)
-            m_buf[0] = 0;
+        if (!m_is_clone) {
+            m_len = 0;
+            if (m_buf)
+                m_buf[0] = 0;
+        }
     }
 
     void destroy() noexcept
     {
-        clear();
-        if (!is_static()) {
-            free(m_buf);
-            m_buf = nullptr;
-            m_capacity = 0;
+        if (!m_is_clone) {
+            clear();
+            if (!is_static()) {
+                free(m_buf);
+                m_buf = nullptr;
+                m_capacity = 0;
+            }
         }
     }
 
@@ -176,7 +186,7 @@ public:
     /* possible return npos */
     size_t fix_length() noexcept
     {
-        if (m_capacity && m_buf) {
+        if (!m_is_clone && m_capacity && m_buf) {
             m_buf[m_capacity] = 0;
             m_len = get_length(m_buf);
             return m_len;
@@ -427,7 +437,7 @@ protected:
                 if (m_len && save_data) {
                     memcpy(buf, m_buf, (m_len + 1) * sizeof(CharT));
                 }
-                delete[] m_buf;
+                free(m_buf);
             }
             m_buf = buf;
             m_capacity = new_capacity;
@@ -988,6 +998,8 @@ protected:
         m_len = 0;
         m_capacity = PreAllocLen;
         m_is_static = true;
+        m_is_clone = false;
+        m_dummy = false;
         m_last_error = non_error;
         m_content[0] = 0;
         m_content[PreAllocLen] = 0;
@@ -1039,6 +1051,8 @@ public:
         m_len = str.m_len;
         m_capacity = str.m_capacity;
         m_is_static = true;
+        m_is_clone = true;
+        m_dummy = false;
         m_last_error = str.m_last_error;
         memcpy(m_content, str.m_content, sizeof(m_content));
     }
@@ -1114,6 +1128,8 @@ protected:
         m_len = !m_buf ? 0 : (slen ? slen : get_length(s));
         m_capacity = m_len;
         m_is_static = true;    /* for disable free m_buf */
+        m_is_clone = true;
+        m_dummy = false;
         m_last_error = non_error;
     }
 };
