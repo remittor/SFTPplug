@@ -86,10 +86,67 @@ BOOL WINAPI FsDisconnect(LPCSTR DisconnectRoot)
 {
     #pragma comment(linker, "/EXPORT:" __FUNCTION__ "=" __FUNCDNAME__)
     wfx::ExCatcher exc(g_wfx);
-    bool x = wfx::invoke(exc, false, [&] { return g_wfx.disconnect(DisconnectRoot); });
+    bool x = wfx::invoke(exc, false, [&] { return g_wfx.Disconnect(DisconnectRoot); });
     if (exc.is_active()) {
         return g_wfx.IsDisconnected() ? TRUE : FALSE;
     }
     return (BOOL)x;
+}
+
+WfxDllExport
+HANDLE WINAPI FsFindFirstW(LPCWSTR Path, LPWIN32_FIND_DATAW FindData)
+{
+    #pragma comment(linker, "/EXPORT:" __FUNCTION__ "=" __FUNCDNAME__)
+    wfx::ExCatcher exc(g_wfx);
+    HANDLE eval = INVALID_HANDLE_VALUE;
+    return wfx::invoke(exc, eval, [&] { return g_wfx.FindFirst(Path, FindData); });
+}
+
+WfxDllExport
+HANDLE WINAPI FsFindFirst(LPCSTR Path, LPWIN32_FIND_DATAA FindData)
+{
+    #pragma comment(linker, "/EXPORT:" __FUNCTION__ "=" __FUNCDNAME__)
+    LOGn("%s: <NOT-SUPPORTED>", __func__);
+    return nullptr;
+}
+
+WfxDllExport
+BOOL WINAPI FsFindNextW(HANDLE Hdl, LPWIN32_FIND_DATAW FindData)
+{
+    #pragma comment(linker, "/EXPORT:" __FUNCTION__ "=" __FUNCDNAME__)
+    wfx::ExCatcher exc(g_wfx);
+    return wfx::invoke(exc, false, [&] { return g_wfx.FindNext(Hdl, FindData); });
+}
+
+WfxDllExport
+BOOL WINAPI FsFindNext(HANDLE Hdl, LPWIN32_FIND_DATAA FindData)
+{
+    #pragma comment(linker, "/EXPORT:" __FUNCTION__ "=" __FUNCDNAME__)
+    LOGn("%s: <NOT-SUPPORTED>", __func__);
+    return FALSE;
+}
+
+WfxDllExport
+int WINAPI FsFindClose(HANDLE Hdl)
+{
+    #pragma comment(linker, "/EXPORT:" __FUNCTION__ "=" __FUNCDNAME__)
+    wfx::ExCatcher exc(g_wfx);
+    return wfx::invoke(exc, 0, [&] { return g_wfx.FindClose(Hdl); });
+}
+
+WfxDllExport
+BOOL WINAPI FsMkDirW(LPCWSTR Path)
+{
+    #pragma comment(linker, "/EXPORT:" __FUNCTION__ "=" __FUNCDNAME__)
+    wfx::ExCatcher exc(g_wfx);
+    return wfx::invoke(exc, false, [&] { return g_wfx.MkDir(Path); });
+}
+
+WfxDllExport
+BOOL WINAPI FsMkDir(LPCSTR Path)
+{
+    #pragma comment(linker, "/EXPORT:" __FUNCTION__ "=" __FUNCDNAME__)
+    LOGn("%s: <NOT-SUPPORTED>", __func__);
+    return FALSE;
 }
 

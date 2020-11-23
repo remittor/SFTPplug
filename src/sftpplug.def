@@ -1,11 +1,4 @@
 EXPORTS
-	FsFindFirst
-	FsFindFirstW
-	FsFindNext
-	FsFindNextW
-	FsFindClose
-	FsMkDir
-	FsMkDirW
 	FsExecuteFile
 	FsExecuteFileW
 	FsRenMovFile

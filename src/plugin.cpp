@@ -352,11 +352,11 @@ bool Plugin::PasswordCopy(bst::c_str & OldName, bst::c_str & NewName, bool move)
     return CryptPassword(move ? CryptPass::Move : CryptPass::Copy, OldName, NewName);
 }
 
-bool Plugin::disconnect(LPCSTR DisconnectRoot)
+bool Plugin::Disconnect(LPCSTR DisconnectRoot)
 {
     LOGt("%s: '%s' ", __func__, DisconnectRoot);
-    bst::sfp DisplayName;
-    GetDisplayNameFromPath(DisconnectRoot, DisplayName.data(), DisplayName.max_len);
+    bst::sfn DisplayName;
+    GetDisplayNameFromPath(DisconnectRoot, DisplayName);
     SERVERID serverid = GetServerIdFromName(DisplayName.c_str(), GetCurrentThreadId());
     if (serverid) {
         LogMessageEx(false, MsgType::Disconnect, 0, "DISCONNECT \\%s", DisplayName.c_str());
@@ -364,6 +364,224 @@ bool Plugin::disconnect(LPCSTR DisconnectRoot)
         SetServerIdForName(DisplayName.c_str(), NULL); // this frees it too!
     }
     return true;
+}
+
+size_t Plugin::GetDisplayNameFromPath(bst::c_str & Path, bst::sfn & DisplayName)
+{
+    DisplayName.clear();
+    LPCSTR p = Path.c_str();
+    while (*p == '\\' || *p == '/')
+        p++;
+    if (*p) {
+        LPCSTR s = p;
+        while (*p && *p != '\\' && *p != '/')
+            p++;
+        if (p > s) {
+            DisplayName.assign(s, (size_t)(p - s));
+            return (size_t)(p - Path.c_str());
+        }
+    }
+    return 0;
+}
+
+size_t Plugin::GetDisplayNameFromPath(bst::c_wstr & Path, bst::sfn & DisplayName)
+{
+    DisplayName.clear();
+    LPCWSTR p = Path.c_str();
+    while (*p == L'\\' || *p == L'/')
+        p++;
+    if (*p) {
+        LPCWSTR s = p;
+        while (*p && *p != L'\\' && *p != L'/')
+            p++;
+        if (p > s) {
+            DisplayName.assign(CP_ACP, s, (size_t)(p - s));
+            return (size_t)(p - Path.c_str());
+        }
+    }
+    return 0;
+}
+
+pConnectSettings Plugin::GetServerIdAndRelativePath(bst::c_wstr & Path, bst::wsfp & RelativePath)
+{
+    RelativePath = L"\\";
+    bst::sfn DisplayName;
+    size_t pp = GetDisplayNameFromPath(Path, DisplayName);
+    SERVERID serverid = GetServerIdFromName(DisplayName.c_str(), GetCurrentThreadId());
+    if (serverid && pp > 0) {
+        RelativePath.assign(Path.c_str() + pp);
+        if (RelativePath.empty())
+            RelativePath = L"\\";
+    }
+    return (pConnectSettings)serverid;
+}
+
+HANDLE Plugin::FindFirst(LPCWSTR Path, LPWIN32_FIND_DATAW FindData)
+{
+    int hr = ERROR_SUCCESS;
+    WLOGt(L"%S: path = '%s' ", __func__, Path);
+    bst::wsfp remotedir;
+    bst::sfn DisplayName;
+    pLastFindStuct lf;
+
+    if (wcscmp(Path, L"\\") == 0) {  // in the root!
+        LoadServersFromIni(m_inifilename.c_str(), get_quickconnect().c_str());
+        memset(FindData, 0, sizeof(WIN32_FIND_DATAW));
+        get_f7newconnectionW().copy(FindData->cFileName, countof(FindData->cFileName) - 1);
+        FindData->dwFileAttributes = 0;
+        SetInt64ToFileTime(&FindData->ftLastWriteTime, FS_TIME_UNKNOWN);
+        FindData->nFileSizeLow = (DWORD)get_resA(IDS_HELPTEXT).length();
+        lf = new tLastFindStuct();
+        lf->rootfindfirst = true;
+        return (HANDLE)lf;
+    }
+
+    SERVERID serverid = NULL;
+    SERVERID new_serverid = NULL;
+    LPVOID sftpdataptr = NULL;
+    {
+        SCOPE_FAILURE {
+            if (new_serverid) {  // initial connect failed
+                SftpCloseConnection(new_serverid);
+                SetServerIdForName(DisplayName.c_str(), NULL); // this frees it too!
+                freportconnect = false;
+                SetLastError(ERROR_PATH_NOT_FOUND);
+            }
+        };
+
+        // load server list if user connects directly via URL
+        LoadServersFromIni(m_inifilename.c_str(), get_quickconnect().c_str());
+        // only disable the reading within a server!
+        if (disablereading && g_wfx.IsMainThread()) {
+            SetLastError(ERROR_NO_MORE_FILES);
+            return INVALID_HANDLE_VALUE;
+        }
+        GetDisplayNameFromPath(Path, DisplayName);
+        serverid = GetServerIdFromName(DisplayName.c_str(), GetCurrentThreadId());
+        if (serverid == nullptr) {
+            new_serverid = SftpConnectToServer(DisplayName.c_str(), m_inifilename.c_str(), NULL);
+            if (!new_serverid) {
+                SetLastError(ERROR_PATH_NOT_FOUND);
+                return INVALID_HANDLE_VALUE;
+            }
+            serverid = new_serverid;
+            SetServerIdForName(DisplayName.c_str(), serverid);
+        }
+        memset(FindData, 0, sizeof(WIN32_FIND_DATAW));
+
+        GetServerIdAndRelativePath(Path, remotedir);
+
+        // Retrieve the directory
+        bool ok = (SFTP_OK == SftpFindFirstFileW(serverid, remotedir.c_str(), &sftpdataptr));
+
+        if (remotedir.length() <= 1 || wcscmp(remotedir.c_str() + 1, L"home") == 0) {    // root -> add ~ link to home dir
+            SYSTEMTIME st;
+            GetSystemTime(&st);
+            SystemTimeToFileTime(&st, &FindData->ftLastWriteTime);
+            wcslcpy(FindData->cFileName, L"~", countof(FindData->cFileName) - 1);
+            FindData->dwFileAttributes = FS_ATTR_UNIXMODE;
+            FindData->dwReserved0 = LIBSSH2_SFTP_S_IFLNK | 0555; // attributes and format mask  /* FIXME: magic number! */
+            lf = new tLastFindStuct();
+            if (ok)
+                lf->sftpdataptr = sftpdataptr;
+            lf->serverid = serverid;
+            return (HANDLE)lf;
+        }
+        BST_THROW_IF(!ok, U, 40010, "Failure on init connection");
+    }
+
+    SCOPE_FAILURE {
+        SftpFindClose(serverid, sftpdataptr);
+        SetLastError(ERROR_NO_MORE_FILES);
+    };
+    int rc = SftpFindNextFileW(serverid, sftpdataptr, FindData);
+    BST_THROW_IF(rc != SFTP_OK, U, 40020, "Failure on init connection");
+
+    lf = new tLastFindStuct();
+    lf->sftpdataptr = sftpdataptr;
+    lf->serverid = serverid;
+    return (HANDLE)lf;
+}
+
+bool Plugin::FindNext(HANDLE Hdl, LPWIN32_FIND_DATAW FindData)
+{
+    bst::sfn name;
+
+    if (Hdl == (HANDLE)1)    /* FIXME: need explanatory comment */
+        return false;
+
+    pLastFindStuct lf = (pLastFindStuct)Hdl;
+    if (!lf || lf == INVALID_HANDLE_VALUE)
+        return false;
+
+    if (lf->rootfindfirst) {
+        SERVERHANDLE hdl = FindFirstServer(name.data(), name.capacity());
+        if (!hdl)
+            return false;
+        awlcopy(FindData->cFileName, name.c_str(), countof(FindData->cFileName)-1);
+        lf->rootfindhandle = hdl;
+        lf->rootfindfirst = false;
+        SetInt64ToFileTime(&FindData->ftLastWriteTime, FS_TIME_UNKNOWN);
+        FindData->dwFileAttributes = FS_ATTR_UNIXMODE;
+        FindData->dwReserved0 = LIBSSH2_SFTP_S_IFLNK; // it's a link
+        FindData->nFileSizeLow = 0;
+        return true;
+    }
+    if (lf->rootfindhandle) {
+        lf->rootfindhandle = FindNextServer(lf->rootfindhandle, name.data(), name.capacity());
+        if (!lf->rootfindhandle)
+            return false;
+        awlcopy(FindData->cFileName, name.c_str(), countof(FindData->cFileName)-1);
+        FindData->dwFileAttributes = FS_ATTR_UNIXMODE;
+        FindData->dwReserved0 = LIBSSH2_SFTP_S_IFLNK; //it's a link
+        return true;
+    }
+    if (lf->sftpdataptr) {
+        int rc = SftpFindNextFileW(lf->serverid, lf->sftpdataptr, FindData);
+        return (rc == SFTP_OK) ? true : false;
+    }
+    return false;
+}
+
+int Plugin::FindClose(HANDLE Hdl)
+{
+    if (!Hdl || Hdl == INVALID_HANDLE_VALUE)
+        return 0;
+
+    pLastFindStuct lf = (pLastFindStuct)Hdl;
+    SCOPE_EXIT {
+        lf->sftpdataptr = NULL;
+        delete lf;
+    };
+    if (lf->sftpdataptr)
+        SftpFindClose(lf->serverid, lf->sftpdataptr);
+
+    return 0;
+}
+
+bool Plugin::MkDir(LPCWSTR Path)
+{
+    LPCWSTR p = wcschr(Path + 1, L'\\');
+    if (p) {
+        bst::wsfp remotedir;
+        SERVERID serverid = GetServerIdAndRelativePath(Path, remotedir);
+        if (!serverid)
+            return false;
+        int rc = SftpCreateDirectoryW(serverid, remotedir.c_str());
+        return (rc == SFTP_OK) ? true : false;
+    }
+    // new connection
+    if (wcscmp(Path + 1, get_quickconnectW().c_str()) != 0 && wcscmp(Path + 1, get_f7newconnectionW().c_str()) != 0) {
+        bst::sfn DisplayName;
+        size_t pp = GetDisplayNameFromPath(Path, DisplayName);    
+        LoadServersFromIni(m_inifilename.c_str(), get_quickconnect().c_str());
+        if (SftpConfigureServer(DisplayName.c_str(), m_inifilename.c_str())) {
+            /* reload config */
+            LoadServersFromIni(m_inifilename.c_str(), s_quickconnect);
+            return true;
+        }
+    }
+    return false;
 }
 
 

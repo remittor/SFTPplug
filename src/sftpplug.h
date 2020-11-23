@@ -8,6 +8,9 @@ extern int PluginNumber;
 extern int CryptoNumber;
 extern DWORD mainthreadid;
 
+extern bool disablereading;
+extern bool freportconnect;
+
 extern tProgressProc  ProgressProc;
 extern tProgressProcW ProgressProcW;
 extern tLogProc       LogProc;

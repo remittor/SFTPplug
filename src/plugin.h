@@ -1,6 +1,7 @@
 #pragma once
 
 #include "utils.h"
+#include "sftpfunc.h"
 #include "res/resource.h"
 #include <vector>
 
@@ -10,6 +11,16 @@ static const char defininame[]   = "sftpplug.ini";
 static const char templatefile[] = "sftpplug.tpl";
 static const char pluginname[]   = "SFTP";
 static const char defrootname[]  = "Secure FTP";
+
+
+struct tLastFindStuct {
+    LPVOID       sftpdataptr = nullptr;    /* LIBSSH2_SFTP_HANDLE or SCP_DATA */
+    SERVERID     serverid = nullptr;
+    SERVERHANDLE rootfindhandle = nullptr;
+    bool         rootfindfirst = false;
+};
+typedef struct tLastFindStuct   tLastFindStuct;
+typedef struct tLastFindStuct  *pLastFindStuct;
 
 
 class Plugin : bst::NonCopyable
@@ -26,10 +37,14 @@ public:
     int init(int PluginNumber) noexcept;
     int init(FsDefaultParamStruct * dps);  // <== general init func !!!
     int init(tCryptProc pCryptProc, int CryptoNr, int Flags) noexcept;
-
-    bool disconnect(LPCSTR DisconnectRoot);
-
     int destroy();
+
+    bool Disconnect(LPCSTR DisconnectRoot);
+    HANDLE FindFirst(LPCWSTR Path, LPWIN32_FIND_DATAW FindData);
+    bool FindNext(HANDLE Hdl, LPWIN32_FIND_DATAW FindData);
+    int FindClose(HANDLE Hdl);
+
+    bool MkDir(LPCWSTR Path);
 
     UINT get_main_thread_id() { return m_main_thread_id; }
 
@@ -99,6 +114,10 @@ public:
     bool PasswordSave(bst::c_str & ConnectionName, bst::c_str & Password);
     bool PasswordDelete(bst::c_str & ConnectionName);
     bool PasswordCopy(bst::c_str & OldName, bst::c_str & NewName, bool move = false);
+
+    size_t GetDisplayNameFromPath(bst::c_str & Path, bst::sfn & DisplayName);
+    size_t GetDisplayNameFromPath(bst::c_wstr & Path, bst::sfn & DisplayName);
+    pConnectSettings GetServerIdAndRelativePath(bst::c_wstr & Path, bst::wsfp & RelativePath);
 
     //wfx::cfg      m_cfg;
     //wfx::inicfg   m_inicfg;
