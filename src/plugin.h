@@ -5,6 +5,10 @@
 #include "res/resource.h"
 #include <vector>
 
+#ifdef DeleteFile
+#undef DeleteFile
+#endif
+
 namespace wfx {
 
 static const char defininame[]   = "sftpplug.ini";
@@ -45,6 +49,11 @@ public:
     int FindClose(HANDLE Hdl);
 
     bool MkDir(LPCWSTR Path);
+    Exec ExecuteFile(Exec & eval, HWND MainWin, LPWSTR RemoteName, LPCWSTR Verb);
+    File RenMovFile(LPCWSTR OldName, LPCWSTR NewName, bool Move, bool OverWrite, RemoteFileInfo * ri);
+    File GetFile(File & eval, LPCWSTR RemoteName, LPWSTR LocalName, CopyFlags flags, RemoteFileInfo * ri);
+    File PutFile(LPCWSTR LocalName, LPCWSTR RemoteName, CopyFlags flags);
+    bool DeleteFile(LPCWSTR RemoteName);
 
     UINT get_main_thread_id() { return m_main_thread_id; }
 
@@ -117,7 +126,8 @@ public:
 
     size_t GetDisplayNameFromPath(bst::c_str & Path, bst::sfn & DisplayName);
     size_t GetDisplayNameFromPath(bst::c_wstr & Path, bst::sfn & DisplayName);
-    pConnectSettings GetServerIdAndRelativePath(bst::c_wstr & Path, bst::wsfp & RelativePath);
+    pConnectSettings GetServerIdFromPath(bst::c_wstr & Path, bst::wsfp & RelativePath);
+    pConnectSettings GetServerIdFromPath(bst::c_wstr & Path);
 
     //wfx::cfg      m_cfg;
     //wfx::inicfg   m_inicfg;

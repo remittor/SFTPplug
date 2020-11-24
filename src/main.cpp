@@ -106,7 +106,7 @@ WfxDllExport
 HANDLE WINAPI FsFindFirst(LPCSTR Path, LPWIN32_FIND_DATAA FindData)
 {
     #pragma comment(linker, "/EXPORT:" __FUNCTION__ "=" __FUNCDNAME__)
-    LOGn("%s: <NOT-SUPPORTED>", __func__);
+    LOGw("%s: <NOT-SUPPORTED>", __func__);
     return nullptr;
 }
 
@@ -122,7 +122,7 @@ WfxDllExport
 BOOL WINAPI FsFindNext(HANDLE Hdl, LPWIN32_FIND_DATAA FindData)
 {
     #pragma comment(linker, "/EXPORT:" __FUNCTION__ "=" __FUNCDNAME__)
-    LOGn("%s: <NOT-SUPPORTED>", __func__);
+    LOGw("%s: <NOT-SUPPORTED>", __func__);
     return FALSE;
 }
 
@@ -146,7 +146,95 @@ WfxDllExport
 BOOL WINAPI FsMkDir(LPCSTR Path)
 {
     #pragma comment(linker, "/EXPORT:" __FUNCTION__ "=" __FUNCDNAME__)
-    LOGn("%s: <NOT-SUPPORTED>", __func__);
+    LOGw("%s: <NOT-SUPPORTED>", __func__);
+    return FALSE;
+}
+
+WfxDllExport
+int WINAPI FsExecuteFileW(HWND MainWin, LPWSTR RemoteName, LPCWSTR Verb)
+{
+    #pragma comment(linker, "/EXPORT:" __FUNCTION__ "=" __FUNCDNAME__)
+    wfx::Exec eval = wfx::Exec::Error;
+    wfx::ExCatcher exc(g_wfx);
+    wfx::Exec rc = wfx::invoke(exc, eval, [&] { return g_wfx.ExecuteFile(eval, MainWin, RemoteName, Verb); });
+    return exc.is_active() ? (int)eval : (int)rc;
+}
+
+WfxDllExport
+int WINAPI FsExecuteFile(HWND MainWin, LPSTR RemoteName, LPCSTR Verb)
+{
+    #pragma comment(linker, "/EXPORT:" __FUNCTION__ "=" __FUNCDNAME__)
+    LOGw("%s: <NOT-SUPPORTED>", __func__);
+    return (int)wfx::Exec::Error;
+}
+
+WfxDllExport
+int WINAPI FsRenMovFileW(LPCWSTR OldName, LPCWSTR NewName, BOOL Move, BOOL OverWrite, wfx::RemoteFileInfo * ri)
+{
+    #pragma comment(linker, "/EXPORT:" __FUNCTION__ "=" __FUNCDNAME__)
+    wfx::File eval = wfx::File::NotFound;
+    wfx::ExCatcher exc(g_wfx);
+    wfx::File rc = wfx::invoke(exc, eval, [&] { return g_wfx.RenMovFile(OldName, NewName, !!Move, !!OverWrite, ri); });
+    return (int)rc;
+}
+
+WfxDllExport
+int WINAPI FsRenMovFile(LPCSTR OldName, LPCSTR NewName, BOOL Move, BOOL OverWrite, wfx::RemoteFileInfo * ri)
+{
+    #pragma comment(linker, "/EXPORT:" __FUNCTION__ "=" __FUNCDNAME__)
+    LOGw("%s: <NOT-SUPPORTED>", __func__);
+    return (int)wfx::File::NotFound;
+}
+
+WfxDllExport
+int WINAPI FsGetFileW(LPCWSTR RemoteName, LPWSTR LocalName, int CopyFlags, wfx::RemoteFileInfo * ri)
+{
+    #pragma comment(linker, "/EXPORT:" __FUNCTION__ "=" __FUNCDNAME__)
+    wfx::File eval = wfx::File::NotFound;
+    wfx::ExCatcher exc(g_wfx);
+    wfx::File rc = wfx::invoke(exc, eval, [&] { return g_wfx.GetFile(eval, RemoteName, LocalName, (wfx::CopyFlags)CopyFlags, ri); });
+    return (int)rc;
+}
+
+WfxDllExport
+int WINAPI FsGetFile(LPCSTR RemoteName, LPSTR LocalName, int CopyFlags, wfx::RemoteFileInfo * ri)
+{
+    #pragma comment(linker, "/EXPORT:" __FUNCTION__ "=" __FUNCDNAME__)
+    LOGw("%s: <NOT-SUPPORTED>", __func__);
+    return (int)wfx::File::NotFound;
+}
+
+WfxDllExport
+int WINAPI FsPutFileW(LPCWSTR LocalName, LPCWSTR RemoteName, int CopyFlags)
+{
+    #pragma comment(linker, "/EXPORT:" __FUNCTION__ "=" __FUNCDNAME__)
+    wfx::File eval = wfx::File::NotFound;
+    wfx::ExCatcher exc(g_wfx);
+    wfx::File rc = wfx::invoke(exc, eval, [&] { return g_wfx.PutFile(LocalName, RemoteName, (wfx::CopyFlags)CopyFlags); });
+    return (int)rc;
+}
+
+WfxDllExport
+int WINAPI FsPutFile(LPCSTR LocalName, LPCSTR RemoteName, int CopyFlags)
+{
+    #pragma comment(linker, "/EXPORT:" __FUNCTION__ "=" __FUNCDNAME__)
+    LOGw("%s: <NOT-SUPPORTED>", __func__);
+    return (int)wfx::File::NotFound;
+}
+
+WfxDllExport
+BOOL WINAPI FsDeleteFileW(LPCWSTR RemoteName)
+{
+    #pragma comment(linker, "/EXPORT:" __FUNCTION__ "=" __FUNCDNAME__)
+    wfx::ExCatcher exc(g_wfx);
+    return wfx::invoke(exc, false, [&] { return g_wfx.DeleteFile(RemoteName); });
+}
+
+WfxDllExport
+BOOL WINAPI FsDeleteFile(LPCSTR RemoteName)
+{
+    #pragma comment(linker, "/EXPORT:" __FUNCTION__ "=" __FUNCDNAME__)
+    LOGw("%s: <NOT-SUPPORTED>", __func__);
     return FALSE;
 }
 

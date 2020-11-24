@@ -24,6 +24,18 @@
 #define SFTP_ABORT       5
 #define SFTP_PARTIAL     6
 
+namespace sftp {
+enum error : int {
+    kOk            = 0,
+    kFailed        = 1,
+    kExists        = 2,
+    kReadFailed    = 3,
+    kWriteFailed   = 4,
+    kAbort         = 5,
+    kPartial       = 6,
+};
+}
+
 extern int PluginNumber;
 extern char s_quickconnect[32];
 

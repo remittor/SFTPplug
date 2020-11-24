@@ -51,6 +51,7 @@ int Plugin::init(FsDefaultParamStruct * dps)
     bst::filename_a templatename;
     DWORD len = GetModuleFileNameA(hinst, templatename.data(), templatename.capacity());
     if (len > 0) {
+        templatename.fix_length();
         size_t p = templatename.rfind('\\');
         if (p != bst::npos) {
             templatename.resize(p + 1);
@@ -334,6 +335,7 @@ bool Plugin::PasswordLoad(bst::c_str & ConnectionName, bst::sfn & Password, bool
         return false;
     CryptPass mode = no_ui ? CryptPass::LoadNoUI : CryptPass::Load;
     int rc = m_cb.CryptProc(m_PluginNumber, m_CryptoNumber, (int)mode, ConnectionName.c_str(), Password.data(), (int)Password.max_len);
+    Password.fix_length();
     return (rc == (int)File::Ok) ? true : false;
 }
 
@@ -402,7 +404,7 @@ size_t Plugin::GetDisplayNameFromPath(bst::c_wstr & Path, bst::sfn & DisplayName
     return 0;
 }
 
-pConnectSettings Plugin::GetServerIdAndRelativePath(bst::c_wstr & Path, bst::wsfp & RelativePath)
+pConnectSettings Plugin::GetServerIdFromPath(bst::c_wstr & Path, bst::wsfp & RelativePath)
 {
     RelativePath = L"\\";
     bst::sfn DisplayName;
@@ -414,6 +416,13 @@ pConnectSettings Plugin::GetServerIdAndRelativePath(bst::c_wstr & Path, bst::wsf
             RelativePath = L"\\";
     }
     return (pConnectSettings)serverid;
+}
+
+pConnectSettings Plugin::GetServerIdFromPath(bst::c_wstr & Path)
+{
+    bst::sfn DisplayName;
+    size_t pp = GetDisplayNameFromPath(Path, DisplayName);
+    return (pConnectSettings) GetServerIdFromName(DisplayName.c_str(), GetCurrentThreadId());
 }
 
 HANDLE Plugin::FindFirst(LPCWSTR Path, LPWIN32_FIND_DATAW FindData)
@@ -469,7 +478,7 @@ HANDLE Plugin::FindFirst(LPCWSTR Path, LPWIN32_FIND_DATAW FindData)
         }
         memset(FindData, 0, sizeof(WIN32_FIND_DATAW));
 
-        GetServerIdAndRelativePath(Path, remotedir);
+        GetServerIdFromPath(Path, remotedir);
 
         // Retrieve the directory
         bool ok = (SFTP_OK == SftpFindFirstFileW(serverid, remotedir.c_str(), &sftpdataptr));
@@ -518,6 +527,7 @@ bool Plugin::FindNext(HANDLE Hdl, LPWIN32_FIND_DATAW FindData)
         SERVERHANDLE hdl = FindFirstServer(name.data(), name.capacity());
         if (!hdl)
             return false;
+        name.fix_length();
         awlcopy(FindData->cFileName, name.c_str(), countof(FindData->cFileName)-1);
         lf->rootfindhandle = hdl;
         lf->rootfindfirst = false;
@@ -531,6 +541,7 @@ bool Plugin::FindNext(HANDLE Hdl, LPWIN32_FIND_DATAW FindData)
         lf->rootfindhandle = FindNextServer(lf->rootfindhandle, name.data(), name.capacity());
         if (!lf->rootfindhandle)
             return false;
+        name.fix_length();
         awlcopy(FindData->cFileName, name.c_str(), countof(FindData->cFileName)-1);
         FindData->dwFileAttributes = FS_ATTR_UNIXMODE;
         FindData->dwReserved0 = LIBSSH2_SFTP_S_IFLNK; //it's a link
@@ -561,29 +572,371 @@ int Plugin::FindClose(HANDLE Hdl)
 
 bool Plugin::MkDir(LPCWSTR Path)
 {
+    bst::wsfp remotedir;
     LPCWSTR p = wcschr(Path + 1, L'\\');
     if (p) {
-        bst::wsfp remotedir;
-        SERVERID serverid = GetServerIdAndRelativePath(Path, remotedir);
+        SERVERID serverid = GetServerIdFromPath(Path, remotedir);
         if (!serverid)
             return false;
         int rc = SftpCreateDirectoryW(serverid, remotedir.c_str());
         return (rc == SFTP_OK) ? true : false;
     }
     // new connection
-    if (wcscmp(Path + 1, get_quickconnectW().c_str()) != 0 && wcscmp(Path + 1, get_f7newconnectionW().c_str()) != 0) {
+    remotedir = Path + 1;
+    if (!remotedir.iequal(get_quickconnectW()) && !remotedir.iequal(get_f7newconnectionW())) {
         bst::sfn DisplayName;
         size_t pp = GetDisplayNameFromPath(Path, DisplayName);    
         LoadServersFromIni(m_inifilename.c_str(), get_quickconnect().c_str());
         if (SftpConfigureServer(DisplayName.c_str(), m_inifilename.c_str())) {
             /* reload config */
-            LoadServersFromIni(m_inifilename.c_str(), s_quickconnect);
+            LoadServersFromIni(m_inifilename.c_str(), get_quickconnect().c_str());
             return true;
         }
     }
     return false;
 }
 
+static bool is_full_name(LPCSTR path)
+{
+    return path && path[0] && path[1] && strchr(path + 1, '\\');
+}
+
+static bool is_full_name(LPCWSTR path)
+{
+    return path && path[0] && path[1] && wcschr(path + 1, L'\\');
+}
+
+static LPWSTR cut_srv_name(LPWSTR path)
+{
+    if (path && path[0] && path[1]) {
+        LPWSTR p = wcschr(path + 1, L'\\');
+        if (p) {
+            p[0] = 0;
+            return path + 1;
+        }
+    }
+    return NULL;
+}
+
+Exec Plugin::ExecuteFile(Exec & eval, HWND MainWin, LPWSTR RemoteName, LPCWSTR Verb)
+{
+    eval = Exec::Error;
+    bst::sfp remoteserver;
+    bst::wsfp remotedir;
+    if (_wcsicmp(Verb, L"open") == 0) {   // follow symlink
+        eval = Exec::YourSelf;
+        if (is_full_name(RemoteName)) {
+            SERVERID serverid = GetServerIdFromPath(RemoteName, remotedir);
+            if (!serverid)
+                return eval;
+            if (!SftpLinkFolderTargetW(serverid, remotedir.data(), remotedir.capacity()))
+                return eval;
+            remotedir.fix_length();
+            // now build the target name: server name followed by new path
+            LPWSTR p = cut_srv_name(RemoteName);
+            if (!p)
+                return Exec::Error;
+            // make sure that we can reach the path!!!
+            wcslcat(RemoteName, remotedir.c_str(), wdirtypemax-1);
+            ReplaceSlashByBackslashW(RemoteName);
+            return Exec::SymLink;
+        }
+        if (_wcsicmp(RemoteName + 1, get_f7newconnectionW().c_str()) != 0) {
+            LPWSTR p = RemoteName + wcslen(RemoteName);
+            int pmaxlen = wdirtypemax - (size_t)(p - RemoteName) - 1;
+            remoteserver.assign(CP_ACP, RemoteName + 1);
+            SERVERID serverid = GetServerIdFromName(remoteserver.c_str(), GetCurrentThreadId());
+            if (serverid) {
+                SftpGetLastActivePathW(serverid, p, pmaxlen);
+            } else {
+                // Quick connect: We must connect here,  otherwise we
+                // cannot switch to the subpath chosen by the user!
+                if (remoteserver.iequal(get_quickconnect())) {
+                    serverid = SftpConnectToServer(remoteserver.c_str(), m_inifilename.c_str(), NULL);
+                    if (!serverid)
+                        return Exec::Error;
+                    SetServerIdForName(remoteserver.c_str(), serverid);
+                    SftpGetLastActivePathW(serverid, p, pmaxlen);
+                } else {
+                    SftpGetServerBasePathW(RemoteName + 1, p, pmaxlen, inifilename);
+                }
+            }
+            if (p[0] == 0)
+                wcslcat(RemoteName, L"/", wdirtypemax-1);
+            ReplaceSlashByBackslashW(RemoteName);
+            return Exec::SymLink;
+        }
+        return eval;
+    }
+    if (_wcsicmp(Verb, L"properties") == 0) {
+        if (RemoteName[1] && wcschr(RemoteName + 1, L'\\') == 0) {
+            remoteserver.assign(CP_ACP, RemoteName + 1);
+            if (!remoteserver.iequal(get_f7newconnection()) && !remoteserver.iequal(get_quickconnect())) {
+                if (SftpConfigureServer(remoteserver.c_str(), inifilename)) {
+                    LoadServersFromIni(inifilename, get_quickconnect().c_str());
+                }
+            }
+        } else {
+            bst::wsfp remotename;
+            SERVERID serverid = GetServerIdFromPath(RemoteName, remotename);
+            /* FIXME: check serverid with NULL */
+            SftpShowPropertiesW(serverid, remotename.c_str());
+        }
+        return Exec::Ok;
+    }
+    if (_wcsnicmp(Verb, L"chmod ", 6) == 0) {
+        if (RemoteName[1] && wcschr(RemoteName+1, '\\') != 0) {
+            SERVERID serverid = GetServerIdFromPath(RemoteName, remotedir);
+            /* FIXME: check serverid with NULL */
+            if (SftpChmodW(serverid, remotedir.c_str(), Verb+6))
+                return Exec::Ok;
+        }
+        return Exec::Error;
+    }
+    if (_wcsnicmp(Verb, L"quote ", 6) == 0) {
+        if (wcsncmp(Verb + 6, L"cd ", 3) == 0) {
+            // first get the start path within the plugin
+            SERVERID serverid = GetServerIdFromPath(RemoteName, remotedir);
+            /* FIXME: check serverid with NULL */
+            remotedir.clear();
+            if (Verb[9] != '\\' && Verb[9] != '/')     // relative path?
+                remotedir.assign(L"\\");
+            remotedir.append(Verb + 9);
+            remotedir.replace(L'/', L'\\');
+            LPWSTR p = cut_srv_name(RemoteName);
+            if (!p)
+                return Exec::Error;
+            // make sure that we can reach the path!!!
+            wcslcat(RemoteName, remotedir.c_str(), wdirtypemax - 1);
+            ReplaceSlashByBackslashW(RemoteName);
+            return Exec::SymLink;
+        }
+        if (is_full_name(RemoteName)) {
+            SERVERID serverid = GetServerIdFromPath(RemoteName, remotedir);
+            /* FIXME: check serverid with NULL */
+            if (SftpQuoteCommand2W(serverid, remotedir.c_str(), Verb+6, NULL, 0) != 0)  /* FIXME: this function returned -1, 0, 1 */
+                return Exec::Ok;
+        }
+        return Exec::Error;
+    }
+    if (_wcsnicmp(Verb, L"mode ", 5) == 0) {   // Binary/Text/Auto
+        SftpSetTransferModeW(Verb+5);
+        /* FIXME: return FS_EXEC_OK ??? */
+    }
+    return Exec::Error;
+}
+
+__forceinline
+static void ResetLastPercent(pConnectSettings ConnectSettings)
+{
+    if (ConnectSettings)
+        ConnectSettings->lastpercent = 0;
+}
+
+File Plugin::RenMovFile(LPCWSTR OldName, LPCWSTR NewName, bool Move, bool OverWrite, RemoteFileInfo * ri)
+{
+    bst::wsfp olddir;
+    bst::wsfp newdir;
+
+    // Rename or copy a server?
+    LPCWSTR p1 = wcschr(OldName + 1, '\\');
+    LPCWSTR p2 = wcschr(NewName + 1, '\\');
+    if (p1 == NULL && p2 == NULL) {
+        bst::sfn OldNameA;
+        OldNameA.assign(CP_ACP, OldName + 1);
+        bst::sfn NewNameA;
+        NewNameA.assign(CP_ACP, NewName + 1);
+        File rc = (File) CopyMoveServerInIni(OldNameA.c_str(), NewNameA.c_str(), Move, OverWrite, inifilename);
+        if (rc == File::Ok) {
+            PasswordCopy(OldNameA, NewNameA, Move);
+            return File::Ok;
+        }
+        return (rc == File::Exists) ? File::Exists : File::NotFound;
+    }
+
+    pConnectSettings serverid1 = GetServerIdFromPath(OldName, olddir);
+    pConnectSettings serverid2 = GetServerIdFromPath(NewName, newdir);
+
+    // must be on same server!
+    if (serverid1 != serverid2 || serverid1 == NULL)
+        return File::NotFound;
+
+    ResetLastPercent(serverid1);
+
+    bool isdir = (ri->Attr & FILE_ATTRIBUTE_DIRECTORY) ? true : false;
+
+    sftp::error rc = (sftp::error) SftpRenameMoveFileW(serverid1, olddir.c_str(), newdir.c_str(), Move, OverWrite, isdir);
+    switch (rc) {
+    case sftp::kOk:
+        return File::Ok;
+    case sftp::kExists:
+        return File::Exists;
+    }
+    return File::NotFound;
+}
+
+static void RemoveInalidChars(LPSTR p)
+{
+    while (p[0]) {
+        if ((UCHAR)p[0] < 32)
+            p[0] = ' ';
+        else if (p[0] == ':' || p[0] == '|' || p[0] == '*' || p[0] == '?' || p[0] == '\\' || p[0] == '/' || p[0] == '"')
+            p[0] = '_';
+        p++;
+    }
+}
+
+static void RemoveInalidChars(LPWSTR p)
+{
+    while (p[0]) {
+        if ((WORD)p[0] < 32)
+            p[0] = L' ';
+        else if (p[0] == L':' || p[0] == L'|' || p[0] == L'*' || p[0] == L'?' || p[0] == L'\\' || p[0] == L'/' || p[0] == L'"')
+            p[0] = L'_';
+        p++;
+    }
+}
+
+File Plugin::GetFile(File & eval, LPCWSTR RemoteName, LPWSTR LocalName, CopyFlags flags, RemoteFileInfo * ri)
+{
+    eval = File::NotFound;
+    bool OverWrite = has_flag(flags, CopyFlag::Overwrite);
+    bool Resume = has_flag(flags, CopyFlag::Resume);
+    bool Move = has_flag(flags, CopyFlag::Move);
+
+    if (wcslen(RemoteName) < 3)
+        return File::NotFound;
+
+    LPWSTR p = wcsrchr(LocalName, '\\');
+    if (p)
+        RemoveInalidChars(p + 1);  // Changes the name passed in!
+
+    bst::wsfp LocalNameEx = LocalName;
+    LocalNameEx.make_path();
+
+    if (wcscmp(RemoteName + 1, get_f7newconnectionW().c_str()) == 0) {
+        eval = File::WriteError;
+        const bst::str & txt = get_resA(IDS_HELPTEXT);
+        DWORD dwAccess = GENERIC_WRITE;
+        DWORD dwShareMode = FILE_SHARE_READ | FILE_SHARE_WRITE;
+        DWORD dwDispos = OverWrite ? CREATE_ALWAYS : CREATE_NEW;
+        DWORD dwFlags = FILE_ATTRIBUTE_NORMAL | FILE_FLAG_SEQUENTIAL_SCAN;
+        HANDLE houtfile = CreateFileW(LocalNameEx.c_str(), dwAccess, dwShareMode, NULL, dwDispos, dwFlags, NULL);
+        if (!houtfile || houtfile == INVALID_HANDLE_VALUE)
+            return OverWrite ? File::Exists : File::WriteError;
+        DWORD written;
+        BOOL ret = WriteFile(houtfile, txt.c_str(), (DWORD)txt.size_bytes(), &written, NULL);
+        CloseHandle(houtfile);
+        return ret ? File::Ok : File::WriteError;
+    }
+
+    bst::wsfp remotedir;
+    pConnectSettings serverid = GetServerIdFromPath(RemoteName, remotedir);
+    if (serverid == NULL)
+        return File::ReadError;
+
+    ResetLastPercent(serverid);
+
+    TaskStatus ts = ProgressProc(RemoteName, LocalName, 0);
+    if (ts == TaskStatus::Aborted)
+        return File::UserAbort;
+
+    DWORD dwAttr = GetFileAttributesW(LocalNameEx.c_str());
+    if (!OverWrite && !Resume && dwAttr != INVALID_FILE_ATTRIBUTES) {
+        // Resume isn't possible because we cannot know
+        // which <CR> characters were already in the original
+        // file,  and which were added during the download
+        bool TextMode = (serverid->unixlinebreaks == 1) && SftpDetermineTransferModeW(RemoteName);
+        if (TextMode)
+            return File::Exists;  // SFTP_FAILED
+        return File::ExistsResumeAllowed;
+    }
+    if (OverWrite) {
+        DeleteFileW(LocalNameEx.c_str());
+    }
+
+    eval = File::UserAbort;
+    while (true) {  // auto-resume loop
+        bool always_overwrite = true;
+        int rc = SftpDownloadFileW(serverid, remotedir.c_str(), LocalName, always_overwrite, ri->Size64, &ri->LastWriteTime, Resume);
+        switch ((sftp::error)rc) {
+        case sftp::kOk:          return File::Ok;
+        case sftp::kExists:      return File::Exists;
+        case sftp::kReadFailed:  return File::ReadError;
+        case sftp::kWriteFailed: return File::WriteError;
+        case sftp::kAbort:       return File::UserAbort;
+        case sftp::kPartial:     Resume = true; break;
+        default: return File::Ok;
+        }
+    }
+    return File::Ok;
+}
+
+File Plugin::PutFile(LPCWSTR LocalName, LPCWSTR RemoteName, CopyFlags flags)
+{
+    bool OverWrite = has_flag(flags, CopyFlag::Overwrite);
+    bool Resume = has_flag(flags, CopyFlag::Resume);
+    bool Move = has_flag(flags, CopyFlag::Move);
+
+    // Auto-overwrites files -> return error if file exists
+    if (has_any_flag(flags, CopyFlag::ExistsSameCase | CopyFlag::ExistsDifferentCase))
+        if (!OverWrite && !Resume)
+            return File::ExistsResumeAllowed;
+
+    if (wcslen(RemoteName) < 3)
+        return File::WriteError;
+
+    TaskStatus ts = ProgressProc(LocalName, RemoteName, 0);
+    if (ts == TaskStatus::Aborted)
+        return File::UserAbort;
+
+    bst::wsfp remotedir;
+    pConnectSettings serverid = GetServerIdFromPath(RemoteName, remotedir);
+    if (serverid == NULL)
+        return File::ReadError;
+
+    ResetLastPercent(serverid);
+
+    bool setattr = !has_flag(flags, CopyFlag::ExistsSameCase);
+    int rc = SftpUploadFileW(serverid, LocalName, remotedir.c_str(), Resume, setattr);
+    switch ((sftp::error)rc) {
+    case sftp::kOk:          return File::Ok;
+    case sftp::kExists:      return SftpSupportsResume(serverid) ? File::ExistsResumeAllowed : File::Exists;
+    case sftp::kReadFailed:  return File::ReadError;
+    case sftp::kWriteFailed: return File::WriteError;
+    case sftp::kAbort:       return File::UserAbort;
+    }
+    return File::NotFound;
+}
+
+bool Plugin::DeleteFile(LPCWSTR RemoteName)
+{
+    bst::wsfp remotedir;
+
+    if (wcslen(RemoteName) < 3)
+        return false;
+
+    LPCWSTR p = wcschr(RemoteName+1, '\\');
+    if (p) {
+        pConnectSettings serverid = GetServerIdFromPath(RemoteName, remotedir);
+        if (serverid)
+            return false;
+        ResetLastPercent(serverid);
+        int rc = SftpDeleteFileW(serverid, remotedir.c_str(), false);
+        return (rc == (int)sftp::kOk) ? true : false;
+    }
+    // delete server
+    remotedir = RemoteName + 1;
+    if (!remotedir.iequal(get_f7newconnectionW()) && !remotedir.iequal(get_quickconnectW())) {
+        bst::sfn srvname;
+        srvname.assign(CP_ACP, RemoteName + 1);
+        if (DeleteServerFromIni(srvname.c_str(), inifilename)) {
+            PasswordDelete(srvname);
+            return true;
+        }
+    }
+    return false;
+}
 
 
 } /* namespace */
