@@ -23,23 +23,35 @@ enum class Exec : int {
     SymLink    = -2,
 };
 
-enum class CopyFlags : int {
+template <typename T>
+inline bool has_flag(T a1, T a2)
+{
+    return ((int)a1 & (int)a2) != 0;
+}
+
+template <typename T>
+inline bool has_any_flag(T a1, T a2)
+{
+    return ((int)a1 & (int)a2) != 0;
+}
+
+template <typename T>
+inline bool has_all_flags(T a1, T a2)
+{
+    return ((int)a1 & (int)a2) == (int)a2;
+}
+
+enum class CopyFlag : int {
+    _Empty               = 0x00,
     Overwrite            = 0x01,
     Resume               = 0x02,
     Move                 = 0x04,
     ExistsSameCase       = 0x08,
     ExistsDifferentCase  = 0x10,
 };
-
-inline CopyFlags operator + (const CopyFlags & a1, const CopyFlags & a2)
-{
-    return (CopyFlags)((int)a1 | (int)a2);
-}
-
-inline CopyFlags operator | (const CopyFlags & a1, const CopyFlags & a2)
-{
-    return (CopyFlags)((int)a1 | (int)a2);
-}
+typedef CopyFlag  CopyFlags;
+inline CopyFlag operator & (const CopyFlag & a1, const CopyFlag & a2) { return (CopyFlag)((int)a1 & (int)a2); }
+inline CopyFlag operator | (const CopyFlag & a1, const CopyFlag & a2) { return (CopyFlag)((int)a1 | (int)a2); }
 
 // flags for tRequestProc
 enum class RT : int {
