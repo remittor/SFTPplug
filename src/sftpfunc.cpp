@@ -4099,8 +4099,8 @@ bool SftpLinkFolderTargetW(SERVERID serverid, LPWSTR RemoteName, size_t maxlen)
     ReplaceBackslashBySlash(filename);
     bool needquotes = IsNeedQuotes(filename);
 
-    wcslcpy(msgbuf, L"Follow link: ", sizeof(msgbuf)-1);
-    wcslcat(msgbuf, RemoteName, sizeof(msgbuf)-1);
+    wcslcpy(msgbuf, L"Follow link: ", _countof(msgbuf));
+    wcslcat(msgbuf, RemoteName, _countof(msgbuf));
     ReplaceBackslashBySlashW(msgbuf);
     ShowStatusW(msgbuf);
 
@@ -4198,7 +4198,7 @@ bool SftpLinkFolderTargetW(SERVERID serverid, LPWSTR RemoteName, size_t maxlen)
             wcslcat(cmdname, L"\"", countof(cmdname)-1);
         ReplaceBackslashBySlashW(cmdname);
         linktarget[0] = 0;     /* FIXME: nonsense ...... */
-        rc = SftpQuoteCommand2W(ConnectSettings, NULL, cmdname, linktarget, sizeof(linktarget) - 1);
+        rc = SftpQuoteCommand2W(ConnectSettings, NULL, cmdname, linktarget, _countof(linktarget) - 1);
         FIN_IF(rc != 0, SFTP_FAILED);
     }
 
