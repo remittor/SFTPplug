@@ -982,6 +982,106 @@ protected:
         return res;
     }
 
+public:
+    bool equal(size_t pos, const CharT * s, size_t len = 0) const noexcept 
+    {
+        return equal_internal(case_sensitive, pos, s, len);
+    }
+
+    bool equal(const CharT * s, size_t len = 0) const noexcept
+    {
+        return equal_internal(case_sensitive, 0, s, len);
+    }
+
+    bool equal(size_t pos, const string_base & str) const noexcept
+    {
+        return equal_internal(case_sensitive, pos, str.c_str(), str.length());
+    }
+
+    bool equal(const string_base & str) const noexcept
+    {
+        return equal_internal(case_sensitive, 0, str.c_str(), str.length());
+    }
+
+    bool iequal(size_t pos, const CharT * s, size_t len = 0) const noexcept
+    {
+        return equal_internal(case_insensitive, pos, s, len);
+    }
+
+    bool iequal(const CharT * s, size_t len = 0) const noexcept
+    {
+        return equal_internal(case_insensitive, 0, s, len);
+    }
+
+    bool iequal(size_t pos, const string_base & str) const noexcept
+    {
+        return equal_internal(case_insensitive, pos, str.c_str(), str.length());
+    }
+
+    bool iequal(const string_base & str) const noexcept
+    {
+        return equal_internal(case_insensitive, 0, str.c_str(), str.length());
+    }
+
+protected:
+    bool equal_internal(char_case _case, size_t pos, const CharT * s, size_t len = 0) const noexcept
+    {
+        if (!s)
+            return false;
+        
+        if (len == 0)
+            len = get_length(s);
+
+        if (pos >= m_len)
+            return false;
+
+        int x;
+        if (is_wstring) {
+            if (_case == case_sensitive)
+                x = wcsncmp((LPCWSTR)m_buf + pos, (LPCWSTR)s, len);
+            else
+                x = _wcsnicmp((LPCWSTR)m_buf + pos, (LPCWSTR)s, len);
+        } else {
+            if (_case == case_sensitive)
+                x = strncmp((LPCSTR)m_buf + pos, (LPCSTR)s, len);
+            else
+                x = _strnicmp((LPCSTR)m_buf + pos, (LPCSTR)s, len);
+        }
+        return x == 0;
+    }
+
+public:
+    void set_last_symbol(CharT c) noexcept(NT)
+    {
+        if (m_len == 0 || m_buf[m_len-1] != c) {
+            size_t len = request_length(m_len + 1, 0);
+            if (len != npos)
+                m_buf[m_len++] = c;
+        }
+    }
+
+    void replace(CharT trg, CharT val) noexcept
+    {
+        if (trg && val && m_buf && m_len) {
+            for (CharT * p = m_buf; p != m_buf + m_len; p++)
+                if (*p == trg)
+                    *p = val;
+        }
+    }
+
+    bool make_path(bool forced = false) noexcept(NT)
+    {
+        if (!forced && m_len < MAX_PATH)
+            return true;
+
+        const_pointer prefix = L"\\\\?\\";   // "\\?\"
+        if (equal(prefix, 4))
+            return true;
+
+        size_t pos = insert(0, prefix, 4);
+        return (pos == npos) ? false : true;
+    }
+
 };
 
 
