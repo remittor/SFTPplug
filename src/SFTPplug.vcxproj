@@ -132,9 +132,6 @@
     <ClInclude Include="res\resource.h" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="sftpplug.def" />
-  </ItemGroup>
-  <ItemGroup>
     <ResourceCompile Include="res\sftpplug.rc" />
   </ItemGroup>
   <ItemGroup>

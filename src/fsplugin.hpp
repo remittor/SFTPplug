@@ -79,6 +79,51 @@ enum class MsgType : int {
     OperationComplete = 7,
 };
 
+// flags for FsStatusInfo
+enum class OperStatus : int {
+    Start = 0,
+    End   = 1,
+};
+
+enum class OpStatus : int {
+    List           =  1,
+    GetSingle      =  2,
+    GetMulti       =  3,
+    PutSingle      =  4,
+    PutMulti       =  5, 
+    RenMovSingle   =  6,
+    RenMovMulti    =  7,
+    Delete         =  8,
+    Attrib         =  9,
+    MkDir          = 10,
+    Exec           = 11,
+    CalcSize       = 12,
+    Search         = 13,
+    SearchText     = 14,
+    SyncSearch     = 15,
+    SyncGet        = 16,
+    SyncPut        = 17,
+    SyncDelete     = 18,
+    GetMultiThread = 19,
+    PutMultiThread = 20,
+};
+
+enum class Icon : int {
+    UserDefault      = 0,
+    Extracted        = 1,
+    ExtractedDestroy = 2,
+    Delayed          = 3,
+};
+
+enum class IconFlag : int {
+    Small        = 0x01,
+    Background   = 0x02,
+};
+typedef IconFlag  IconFlags;
+inline IconFlag operator & (const IconFlag & a1, const IconFlag & a2) { return (IconFlag)((int)a1 & (int)a2); }
+inline IconFlag operator | (const IconFlag & a1, const IconFlag & a2) { return (IconFlag)((int)a1 | (int)a2); }
+
+
 enum class CryptPass : int {
     Save        = 1,
     Load        = 2,
@@ -87,6 +132,45 @@ enum class CryptPass : int {
     Move        = 5, // Move password when renaming a connection
     Delete      = 6, // Delete password
 };
+
+enum class CryptFlag : int {
+    MasterPassSet = 0x01,    // The user already has a master password defined
+};
+typedef CryptFlag  CryptFlags;
+inline CryptFlag operator & (const CryptFlag & a1, const CryptFlag & a2) { return (CryptFlag)((int)a1 & (int)a2); }
+inline CryptFlag operator | (const CryptFlag & a1, const CryptFlag & a2) { return (CryptFlag)((int)a1 | (int)a2); }
+
+
+enum class BkGrFlag : int {
+    Download    = 0x01,      // Plugin supports downloads in background
+    Upload      = 0x02,      // Plugin supports uploads in background
+    AskUser     = 0x04,      // Plugin requires separate connection for background transfers -> ask user first
+};
+typedef BkGrFlag  BkGrFlags;
+inline BkGrFlag operator & (const BkGrFlag & a1, const BkGrFlag & a2) { return (BkGrFlag)((int)a1 & (int)a2); }
+inline BkGrFlag operator | (const BkGrFlag & a1, const BkGrFlag & a2) { return (BkGrFlag)((int)a1 | (int)a2); }
+
+enum class HashFlag : int {
+    _Empty      = 0,
+    CRC32       = 0x0001,
+    MD5         = 0x0002,
+    SHA1        = 0x0004,
+    SHA256      = 0x0008,
+    SHA512      = 0x0010,
+    OTHER       = 0x0200,
+};
+typedef HashFlag  HashFlags;
+inline HashFlag operator & (const HashFlag & a1, const HashFlag & a2) { return (HashFlag)((int)a1 & (int)a2); }
+inline HashFlag operator | (const HashFlag & a1, const HashFlag & a2) { return (HashFlag)((int)a1 | (int)a2); }
+
+enum class HashError : int {
+    Busy    = -1,        // Checksum calculation still active, try again
+    Fail    = -2,        // Failed to get checksum
+};
+
+const INT64 TimeUnknown = -2LL;      // Use the following settings for files which don't have a time
+
+const DWORD AttrUnixMode = 0x80000000;   // for Unix systems: set the dwReserved0 parameter to the Unix file mode (permissions).
 
 // Progress task status
 enum class TaskStatus : int {

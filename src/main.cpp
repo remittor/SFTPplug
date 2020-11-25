@@ -2,7 +2,6 @@
 #include "excatch.h"
 #include <string>
 
-HANDLE g_hInstance = NULL;
 wfx::Plugin g_wfx;
 
 
@@ -14,7 +13,6 @@ BOOL WINAPI DllMain(HINSTANCE hInstDLL, DWORD fdwReason, LPVOID lpReserved) noex
 
     if (fdwReason == DLL_PROCESS_ATTACH) {
         DWORD tid = GetCurrentThreadId();
-        g_hInstance = hInstDLL;
         LOGn("SFTP Plugin Loaded ===================== Thread ID = 0x%X ========", tid);
         g_wfx.init(hInstDLL, tid);
     }
@@ -32,7 +30,7 @@ int WINAPI FsGetBackgroundFlags(void)
 {
     #pragma comment(linker, "/EXPORT:" __FUNCTION__ "=" __FUNCDNAME__)
     LOGt("%s: BG_DOWNLOAD | BG_UPLOAD | BG_ASK_USER", __func__);
-    return BG_DOWNLOAD | BG_UPLOAD | BG_ASK_USER;
+    return (int)(wfx::BkGrFlag::Download | wfx::BkGrFlag::Upload | wfx::BkGrFlag::AskUser);
 }
 
 WfxDllExport
@@ -78,7 +76,7 @@ void WINAPI FsSetCryptCallback(tCryptProc pCryptProc, int CryptoNr, int Flags)
 {
     #pragma comment(linker, "/EXPORT:" __FUNCTION__ "=" __FUNCDNAME__)
     LOGt("%s: pCryptProc = %p, CryptoNr = 0x%08X, Flags = 0x%02X ", __func__, pCryptProc, CryptoNr, Flags);
-    g_wfx.init(pCryptProc, CryptoNr, Flags);
+    g_wfx.init(pCryptProc, CryptoNr, (wfx::CryptFlags)Flags);
 }
 
 WfxDllExport
@@ -236,5 +234,136 @@ BOOL WINAPI FsDeleteFile(LPCSTR RemoteName)
     #pragma comment(linker, "/EXPORT:" __FUNCTION__ "=" __FUNCDNAME__)
     LOGw("%s: <NOT-SUPPORTED>", __func__);
     return FALSE;
+}
+
+WfxDllExport
+BOOL WINAPI FsRemoveDirW(LPCWSTR RemoteName)
+{
+    #pragma comment(linker, "/EXPORT:" __FUNCTION__ "=" __FUNCDNAME__)
+    wfx::ExCatcher exc(g_wfx);
+    return wfx::invoke(exc, false, [&] { return g_wfx.RemoveDir(RemoteName); });
+}
+
+WfxDllExport
+BOOL WINAPI FsRemoveDir(LPCSTR RemoteName)
+{
+    #pragma comment(linker, "/EXPORT:" __FUNCTION__ "=" __FUNCDNAME__)
+    LOGw("%s: <NOT-SUPPORTED>", __func__);
+    return FALSE;
+}
+
+WfxDllExport
+BOOL WINAPI FsSetAttrW(LPCWSTR RemoteName, int NewAttr)
+{
+    #pragma comment(linker, "/EXPORT:" __FUNCTION__ "=" __FUNCDNAME__)
+    wfx::ExCatcher exc(g_wfx);
+    return wfx::invoke(exc, false, [&] { return g_wfx.SetAttr(RemoteName, NewAttr); });
+}
+
+WfxDllExport
+BOOL WINAPI FsSetAttr(LPCSTR RemoteName, int NewAttr)
+{
+    #pragma comment(linker, "/EXPORT:" __FUNCTION__ "=" __FUNCDNAME__)
+    LOGw("%s: <NOT-SUPPORTED>", __func__);
+    return FALSE;
+}
+
+WfxDllExport
+BOOL WINAPI FsSetTimeW(LPCWSTR RemoteName, LPFILETIME CreationTime, LPFILETIME LastAccessTime, LPFILETIME LastWriteTime)
+{
+    #pragma comment(linker, "/EXPORT:" __FUNCTION__ "=" __FUNCDNAME__)
+    wfx::ExCatcher exc(g_wfx);
+    return wfx::invoke(exc, false, [&] { return g_wfx.SetTime(RemoteName, CreationTime, LastAccessTime, LastWriteTime); });
+}
+
+WfxDllExport
+BOOL WINAPI FsSetTime(LPCSTR RemoteName, LPFILETIME CreationTime, LPFILETIME LastAccessTime, LPFILETIME LastWriteTime)
+{
+    #pragma comment(linker, "/EXPORT:" __FUNCTION__ "=" __FUNCDNAME__)
+    LOGw("%s: <NOT-SUPPORTED>", __func__);
+    return FALSE;
+}
+
+void WINAPI FsStatusInfoW(LPCWSTR RemoteDir, int InfoStartEnd, int InfoOperation)
+{
+    #pragma comment(linker, "/EXPORT:" __FUNCTION__ "=" __FUNCDNAME__)
+    wfx::ExCatcher exc(g_wfx);
+    wfx::invoke(exc, false, [&] { return g_wfx.StatusInfo(RemoteDir, (wfx::OperStatus)InfoStartEnd, (wfx::OpStatus)InfoOperation); });
+}
+
+WfxDllExport
+void WINAPI FsStatusInfo(LPCSTR RemoteDir, int InfoStartEnd, int InfoOperation)
+{
+    #pragma comment(linker, "/EXPORT:" __FUNCTION__ "=" __FUNCDNAME__)
+    LOGw("%s: <NOT-SUPPORTED>", __func__);
+}
+
+WfxDllExport
+int WINAPI FsExtractCustomIconW(LPCWSTR RemoteName, int ExtractFlags, HICON * TheIcon)
+{
+    #pragma comment(linker, "/EXPORT:" __FUNCTION__ "=" __FUNCDNAME__)
+    wfx::Icon eval = wfx::Icon::UserDefault;
+    wfx::ExCatcher exc(g_wfx);
+    wfx::Icon rc = wfx::invoke(exc, eval, [&] { return g_wfx.ExtractCustomIcon(RemoteName, (wfx::IconFlags)ExtractFlags, TheIcon); });
+    return (int)rc;
+}
+
+WfxDllExport
+int WINAPI FsExtractCustomIcon(LPCSTR RemoteName, int ExtractFlags, HICON * TheIcon)
+{
+    #pragma comment(linker, "/EXPORT:" __FUNCTION__ "=" __FUNCDNAME__)
+    LOGw("%s: <NOT-SUPPORTED>", __func__);
+    return (int)wfx::Icon::UserDefault;
+}
+
+WfxDllExport
+int WINAPI FsServerSupportsChecksumsW(LPCWSTR RemoteName)
+{
+    #pragma comment(linker, "/EXPORT:" __FUNCTION__ "=" __FUNCDNAME__)
+    wfx::HashFlags eval = wfx::HashFlags::_Empty;
+    wfx::ExCatcher exc(g_wfx);
+    wfx::HashFlags rc = wfx::invoke(exc, eval, [&] { return g_wfx.ServerSupportsChecksums(RemoteName); });
+    return (int)rc;
+}
+
+WfxDllExport
+int WINAPI FsServerSupportsChecksums(LPCSTR RemoteName)
+{
+    #pragma comment(linker, "/EXPORT:" __FUNCTION__ "=" __FUNCDNAME__)
+    LOGw("%s: <NOT-SUPPORTED>", __func__);
+    return 0;
+}
+
+WfxDllExport
+HANDLE WINAPI FsStartFileChecksumW(int ChecksumType, LPCWSTR RemoteName)
+{
+    #pragma comment(linker, "/EXPORT:" __FUNCTION__ "=" __FUNCDNAME__)
+    HANDLE eval = nullptr;
+    wfx::ExCatcher exc(g_wfx);
+    return wfx::invoke(exc, eval, [&] { return g_wfx.StartFileChecksum((wfx::HashFlags)ChecksumType, RemoteName); });
+}
+
+WfxDllExport
+HANDLE WINAPI FsStartFileChecksum(int ChecksumType, LPCSTR RemoteName)
+{
+    #pragma comment(linker, "/EXPORT:" __FUNCTION__ "=" __FUNCDNAME__)
+    LOGw("%s: <NOT-SUPPORTED>", __func__);
+    return nullptr;
+}
+
+WfxDllExport
+int WINAPI FsGetFileChecksumResultW(BOOL WantResult, HANDLE ChecksumHandle, LPCWSTR RemoteName, LPSTR checksum, int maxlen)
+{
+    #pragma comment(linker, "/EXPORT:" __FUNCTION__ "=" __FUNCDNAME__)
+    wfx::ExCatcher exc(g_wfx);
+    return wfx::invoke(exc, 0, [&] { return g_wfx.GetFileChecksumResult(!!WantResult, ChecksumHandle, RemoteName, checksum, maxlen); });
+}
+
+WfxDllExport
+int WINAPI FsGetFileChecksumResult(BOOL WantResult, HANDLE ChecksumHandle, LPCSTR RemoteName, LPSTR checksum, int maxlen)
+{
+    #pragma comment(linker, "/EXPORT:" __FUNCTION__ "=" __FUNCDNAME__)
+    LOGw("%s: <NOT-SUPPORTED>", __func__);
+    return 0;
 }
 

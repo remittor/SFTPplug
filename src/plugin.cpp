@@ -77,14 +77,14 @@ int Plugin::destroy()
     return 0;
 }
 
-int Plugin::init(tCryptProc pCryptProc, int CryptoNr, int Flags) noexcept
+int Plugin::init(tCryptProc pCryptProc, int CryptoNr, CryptFlags Flags) noexcept
 {
     ::CryptProc = pCryptProc;
-    ::CryptCheckPass = (Flags & FS_CRYPTOPT_MASTERPASS_SET) != 0;
+    ::CryptCheckPass = has_flag(Flags, CryptFlag::MasterPassSet);
     ::CryptoNumber = CryptoNr;
 
     m_cb.CryptProc = pCryptProc;
-    m_CryptCheckPass = (Flags & FS_CRYPTOPT_MASTERPASS_SET) != 0;
+    m_CryptCheckPass = has_flag(Flags, CryptFlag::MasterPassSet);
     m_CryptoNumber = CryptoNr;
 
     return 0;
@@ -248,7 +248,7 @@ bool Plugin::RequestCodePage(int & cp)
     return false;
 }
 
-bool Plugin::RequestMsgOK(bst::c_str & title, bst::c_str & text)
+bool Plugin::RequestMsgOk(bst::c_str & title, bst::c_str & text)
 {
     return RequestProc(RT::MsgOk, title, text, nullptr);
 }
@@ -279,7 +279,7 @@ void Plugin::LogMessageEx(bool err, MsgType mt, size_t rid, LPCSTR fmtstr, ...)
     }
     m_cb.LogProc(m_PluginNumber, (int)mt, buf.c_str());
     if (err)
-        RequestMsgOK("SFTP Error", buf.c_str());
+        RequestMsgOk("SFTP Error", buf.c_str());
 }
 
 void Plugin::LogMessageEx(bool err, MsgType mt, size_t rid, LPCWSTR fmtstr, ...)
@@ -438,7 +438,7 @@ HANDLE Plugin::FindFirst(LPCWSTR Path, LPWIN32_FIND_DATAW FindData)
         memset(FindData, 0, sizeof(WIN32_FIND_DATAW));
         get_f7newconnectionW().copy(FindData->cFileName, countof(FindData->cFileName) - 1);
         FindData->dwFileAttributes = 0;
-        SetInt64ToFileTime(&FindData->ftLastWriteTime, FS_TIME_UNKNOWN);
+        SetInt64ToFileTime(&FindData->ftLastWriteTime, TimeUnknown);
         FindData->nFileSizeLow = (DWORD)get_resA(IDS_HELPTEXT).length();
         lf = new tLastFindStuct();
         lf->rootfindfirst = true;
@@ -488,7 +488,7 @@ HANDLE Plugin::FindFirst(LPCWSTR Path, LPWIN32_FIND_DATAW FindData)
             GetSystemTime(&st);
             SystemTimeToFileTime(&st, &FindData->ftLastWriteTime);
             wcslcpy(FindData->cFileName, L"~", countof(FindData->cFileName) - 1);
-            FindData->dwFileAttributes = FS_ATTR_UNIXMODE;
+            FindData->dwFileAttributes = AttrUnixMode;
             FindData->dwReserved0 = LIBSSH2_SFTP_S_IFLNK | 0555; // attributes and format mask  /* FIXME: magic number! */
             lf = new tLastFindStuct();
             if (ok)
@@ -531,8 +531,8 @@ bool Plugin::FindNext(HANDLE Hdl, LPWIN32_FIND_DATAW FindData)
         awlcopy(FindData->cFileName, name.c_str(), countof(FindData->cFileName)-1);
         lf->rootfindhandle = hdl;
         lf->rootfindfirst = false;
-        SetInt64ToFileTime(&FindData->ftLastWriteTime, FS_TIME_UNKNOWN);
-        FindData->dwFileAttributes = FS_ATTR_UNIXMODE;
+        SetInt64ToFileTime(&FindData->ftLastWriteTime, TimeUnknown);
+        FindData->dwFileAttributes = AttrUnixMode;
         FindData->dwReserved0 = LIBSSH2_SFTP_S_IFLNK; // it's a link
         FindData->nFileSizeLow = 0;
         return true;
@@ -543,7 +543,7 @@ bool Plugin::FindNext(HANDLE Hdl, LPWIN32_FIND_DATAW FindData)
             return false;
         name.fix_length();
         awlcopy(FindData->cFileName, name.c_str(), countof(FindData->cFileName)-1);
-        FindData->dwFileAttributes = FS_ATTR_UNIXMODE;
+        FindData->dwFileAttributes = AttrUnixMode;
         FindData->dwReserved0 = LIBSSH2_SFTP_S_IFLNK; //it's a link
         return true;
     }
@@ -936,6 +936,128 @@ bool Plugin::DeleteFile(LPCWSTR RemoteName)
         }
     }
     return false;
+}
+
+bool Plugin::RemoveDir(LPCWSTR RemoteName)
+{
+    if (!is_full_name(RemoteName))
+        return false;
+
+    bst::wsfp remotedir;
+    pConnectSettings serverid = GetServerIdFromPath(RemoteName, remotedir);
+    if (serverid == NULL)
+        return false;
+    ResetLastPercent(serverid);
+    int rc = SftpDeleteFileW(serverid, remotedir.c_str(), true);
+    return (rc == (int)sftp::kOk) ? true : false;
+}
+
+bool Plugin::SetAttr(LPCWSTR RemoteName, int NewAttr)
+{
+    bst::wsfp remotedir;
+    pConnectSettings serverid = GetServerIdFromPath(RemoteName, remotedir);
+    if (serverid == NULL)
+        return false;
+    ResetLastPercent(serverid);
+    bst::sfp remotedirA;
+    remotedirA.assign(CP_ACP, remotedir.c_str());   /* FIXME: make SftpSetAttrW */
+    int rc = SftpSetAttr(serverid, remotedirA.c_str(), NewAttr);
+    return (rc == (int)sftp::kOk) ? true : false;
+}
+
+bool Plugin::SetTime(LPCWSTR RemoteName, LPFILETIME CreationTime, LPFILETIME LastAccessTime, LPFILETIME LastWriteTime)
+{
+    bst::wsfp remotedir;
+    pConnectSettings serverid = GetServerIdFromPath(RemoteName, remotedir);
+    if (serverid == NULL)
+        return false;
+    ResetLastPercent(serverid);
+    int rc = SftpSetDateTimeW(serverid, remotedir.c_str(), LastWriteTime);
+    return (rc == (int)sftp::kOk) ? true : false;
+}
+
+bool Plugin::StatusInfo(LPCWSTR RemoteDir, OperStatus InfoStartEnd, OpStatus InfoOperation)
+{
+    if (wcslen(RemoteDir) < 2)
+        if (InfoOperation == OpStatus::Delete || InfoOperation == OpStatus::RenMovMulti)
+            disablereading = (InfoStartEnd == OperStatus::Start) ? true : false;
+
+    if (InfoOperation == OpStatus::GetMultiThread || InfoOperation == OpStatus::PutMultiThread) {
+        bst::sfp RemoteDirA;
+        RemoteDirA.assign(CP_ACP, RemoteDir);
+        if (InfoStartEnd != OperStatus::Start) {
+            Disconnect(RemoteDirA.c_str());
+            return true;
+        }
+        bst::sfn DisplayName;
+        LPSTR oldpass = NULL;
+        GetDisplayNameFromPath(RemoteDir, DisplayName);
+        // get password from main thread
+        pConnectSettings oldserverid = (pConnectSettings)GetServerIdFromName(DisplayName.c_str(), mainthreadid);
+        if (oldserverid && oldserverid->password[0]) {
+            oldpass = oldserverid->password;
+        }
+        SERVERID serverid = SftpConnectToServer(DisplayName.c_str(), inifilename, oldpass);
+        if (serverid)
+            SetServerIdForName(DisplayName.c_str(), serverid);
+    }
+    return true;
+}
+
+Icon Plugin::ExtractCustomIcon(LPCWSTR RemoteName, IconFlags ExtractFlags, HICON * TheIcon)
+{
+    *TheIcon = nullptr;
+    if (wcslen(RemoteName) <= 1)
+        return Icon::UserDefault;
+
+    if (is_full_name(RemoteName))   // not server name!
+        return Icon::UserDefault;
+
+    if (_wcsicmp(RemoteName + 1, get_f7newconnectionW().c_str()) == 0)
+        return Icon::UserDefault;
+
+    bst::wsfp remotedir;
+    SERVERID serverid = GetServerIdFromPath(RemoteName, remotedir);
+    bool sm = has_flag(ExtractFlags, IconFlag::Small);
+    // show different icon when connected!
+    LPCSTR lpIconName;
+    if (serverid == nullptr)
+        lpIconName = MAKEINTRESOURCEA(sm ? IDI_ICON1SMALL : IDI_ICON1);
+    else
+        lpIconName = MAKEINTRESOURCEA(sm ? IDI_ICON2SMALL : IDI_ICON2);
+    *TheIcon = LoadIconA(hinst, lpIconName);
+    return Icon::Extracted;
+}
+
+HashFlags Plugin::ServerSupportsChecksums(LPCWSTR RemoteName)
+{
+    bst::wsfp remotedir;
+    pConnectSettings serverid = GetServerIdFromPath(RemoteName, remotedir);
+    if (serverid == nullptr)
+        return HashFlag::_Empty;
+    ResetLastPercent(serverid);
+    int rc = SftpServerSupportsChecksumsW(serverid, remotedir.c_str());
+    return (HashFlags)rc;
+}
+
+HANDLE Plugin::StartFileChecksum(HashFlags ChecksumType, LPCWSTR RemoteName)
+{
+    bst::wsfp remotedir;
+    pConnectSettings serverid = GetServerIdFromPath(RemoteName, remotedir);
+    if (serverid == nullptr)
+        return nullptr;
+    ResetLastPercent(serverid);
+    return SftpStartFileChecksumW((int)ChecksumType, serverid, remotedir.c_str());
+}
+
+int Plugin::GetFileChecksumResult(bool WantResult, HANDLE ChecksumHandle, LPCWSTR RemoteName, LPSTR checksum, int maxlen)
+{
+    bst::wsfp remotedir;
+    pConnectSettings serverid = GetServerIdFromPath(RemoteName, remotedir);
+    if (serverid == nullptr)
+        return 0;  /* length = 0 */
+    ResetLastPercent(serverid);
+    return SftpGetFileChecksumResultW(WantResult, ChecksumHandle, serverid, checksum, maxlen);
 }
 
 

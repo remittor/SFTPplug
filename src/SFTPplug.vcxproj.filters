@@ -142,11 +142,6 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <None Include="sftpplug.def">
-      <Filter>Source Files</Filter>
-    </None>
-  </ItemGroup>
-  <ItemGroup>
     <Image Include="res\icon1.ico">
       <Filter>Resource Files</Filter>
     </Image>

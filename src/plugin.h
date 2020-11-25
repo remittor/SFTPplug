@@ -40,10 +40,11 @@ public:
     int init(HMODULE lib_addr, DWORD thread_id) noexcept;
     int init(int PluginNumber) noexcept;
     int init(FsDefaultParamStruct * dps);  // <== general init func !!!
-    int init(tCryptProc pCryptProc, int CryptoNr, int Flags) noexcept;
+    int init(tCryptProc pCryptProc, int CryptoNr, CryptFlags Flags) noexcept;
     int destroy();
 
     bool Disconnect(LPCSTR DisconnectRoot);
+
     HANDLE FindFirst(LPCWSTR Path, LPWIN32_FIND_DATAW FindData);
     bool FindNext(HANDLE Hdl, LPWIN32_FIND_DATAW FindData);
     int FindClose(HANDLE Hdl);
@@ -54,6 +55,15 @@ public:
     File GetFile(File & eval, LPCWSTR RemoteName, LPWSTR LocalName, CopyFlags flags, RemoteFileInfo * ri);
     File PutFile(LPCWSTR LocalName, LPCWSTR RemoteName, CopyFlags flags);
     bool DeleteFile(LPCWSTR RemoteName);
+    bool RemoveDir(LPCWSTR RemoteName);
+    bool SetAttr(LPCWSTR RemoteName, int NewAttr);
+    bool SetTime(LPCWSTR RemoteName, LPFILETIME CreationTime, LPFILETIME LastAccessTime, LPFILETIME LastWriteTime);
+
+    bool StatusInfo(LPCWSTR RemoteDir, OperStatus InfoStartEnd, OpStatus InfoOperation);
+    Icon ExtractCustomIcon(LPCWSTR RemoteName, IconFlags ExtractFlags, HICON * TheIcon);
+    HashFlags ServerSupportsChecksums(LPCWSTR RemoteName);
+    HANDLE StartFileChecksum(HashFlags ChecksumType, LPCWSTR RemoteName);
+    int GetFileChecksumResult(bool WantResult, HANDLE ChecksumHandle, LPCWSTR RemoteName, LPSTR checksum, int maxlen);
 
     UINT get_main_thread_id() { return m_main_thread_id; }
 
@@ -105,7 +115,7 @@ public:
     bool RequestPassword(bst::c_str & title, bst::sfn & password, size_t rid = 0);
     bool RequestPassword2(bst::c_str & title, bst::sfn & password);
     bool RequestCodePage(int & cp);
-    bool RequestMsgOK(bst::c_str & title, bst::c_str & text);
+    bool RequestMsgOk(bst::c_str & title, bst::c_str & text);
     bool RequestMsgYesNo(bst::c_str & title, bst::c_str & text);
 
     void LogMessageEx(bool err, MsgType mt, size_t rid, LPCSTR fmtstr, ...);
