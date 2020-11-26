@@ -12,7 +12,7 @@ class ExCatcher : bst::NonCopyableNonMoveable
 protected:
     Plugin         & m_plg;
     bst::exception   m_cppex;   // C++ exception info
-    bst::str         m_trace;   // stack trace
+    bst::nt::str     m_trace;   // stack trace
     bool             m_active = false;
     bool             m_showed = false;
 
@@ -30,8 +30,8 @@ public:
         show(nullptr);
     }
 
-    int init(const std::exception & ex) noexcept;
-    int init(const bst::exception & ex) noexcept;
+    int init(const std::exception & ex, LPVOID * pctx = nullptr) noexcept;
+    int init(const bst::exception & ex, LPVOID * pctx = nullptr) noexcept;
     int init(PEXCEPTION_POINTERS pExp, DWORD dwExpCode) noexcept;
     int show(LPCWSTR fmt, ...);
 
@@ -39,9 +39,11 @@ public:
     bool is_showed() { return m_showed; }
 
 protected:
-    int init_cpp_internal() noexcept;
+    int init_cpp_internal(LPVOID * pctx = nullptr) noexcept;
 };
 
+extern "C" void** __cdecl __current_exception();
+extern "C" void** __cdecl __current_exception_context();
 
 /* CPP exception catcher */
 template<typename R, typename F>
@@ -51,11 +53,11 @@ auto catch_cpp_exceptions(ExCatcher & exc, R eval, F && func)
         return func();
     }
     catch (bst::exception & ex) {
-        exc.init(ex);
+        exc.init(ex, __current_exception_context());
         throw;
     }
     catch (std::exception & ex) {
-        exc.init(ex);
+        exc.init(ex, __current_exception_context());
         throw;
     }
     return eval;

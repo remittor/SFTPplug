@@ -78,10 +78,10 @@ public:
 
     explicit exception(error_t err_type, LPCSTR filename, LPCSTR funcname, int err_code, LPCSTR message, ...) noexcept
     {
-         va_list argptr;
-         va_start(argptr, message);
-         assign(err_type, filename, funcname, err_code, message, argptr);
-         va_end(argptr);
+        va_list argptr;
+        va_start(argptr, message);
+        assign(err_type, filename, funcname, err_code, message, argptr);
+        va_end(argptr);
     }
 
     explicit exception(error_t err_type, LPCSTR filename, LPCSTR funcname, int err_code, LPCWSTR message, ...) noexcept
@@ -161,6 +161,16 @@ public:
     virtual const wchar_t * whatW() const noexcept
     {
         return m_messageW;
+    }
+
+    const char * filename() const noexcept
+    {
+        return m_filename;
+    }
+
+    const char * funcname() const noexcept
+    {
+        return m_funcname;
     }
 
 protected:

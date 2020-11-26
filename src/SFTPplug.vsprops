@@ -24,6 +24,7 @@
       <AdditionalIncludeDirectories Condition="'$(SFTP_ALLINONE)'=='1'">
         $(ExtDir)\libssh2\include;
         $(ExtDir)\libressl-msvc\src\include;
+        $(ExtDir)\StackWalker\Main\StackWalker;
       </AdditionalIncludeDirectories>
       <DisableSpecificWarnings>4244;4267;4996</DisableSpecificWarnings>
       <PreprocessorDefinitions Condition="'$(SFTP_ALLINONE)'!='1'">_USRDLL;_WIN32_WINNT=0x0501;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -38,10 +39,9 @@
     <Link>
       <SubSystem>Windows</SubSystem>
       <AdditionalLibraryDirectories>$(LibDir)</AdditionalLibraryDirectories>
-      <AdditionalDependencies Condition="'$(SFTP_ALLINONE)'!='1'">Ws2_32.lib;shlwapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalDependencies Condition="'$(SFTP_ALLINONE)'=='1'">Ws2_32.lib;shlwapi.lib;libssh2.lib;libcrypto.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies Condition="'$(SFTP_ALLINONE)'!='1'">Ws2_32.lib;shlwapi.lib;StackWalker.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies Condition="'$(SFTP_ALLINONE)'=='1'">Ws2_32.lib;shlwapi.lib;StackWalker.lib;libssh2.lib;libcrypto.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <SuppressStartupBanner>true</SuppressStartupBanner>
-      <ModuleDefinitionFile>sftpplug.def</ModuleDefinitionFile>
       <OptimizeReferences>true</OptimizeReferences>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <LinkTimeCodeGeneration>UseLinkTimeCodeGeneration</LinkTimeCodeGeneration>
