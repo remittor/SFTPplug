@@ -1,0 +1,38 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <_PropertySheetDisplayName>extlibs</_PropertySheetDisplayName>
+    <TargetName>$(ProjectName)</TargetName>
+    <IntDir>$(SolutionDir)..\.intermediates\$(ProjectName)\$(Platform)_$(Configuration)\</IntDir>
+    <LibDir>$(SolutionDir)..\lib\$(Platform)_$(Configuration)\</LibDir>
+    <BinDir>$(SolutionDir)..\bin\$(Platform)_$(Configuration)\</BinDir>
+    <OpensslIncDir>$(SolutionDir)\libressl-msvc\src\include\</OpensslIncDir>
+    <OpensslLibDir>$(SolutionDir)\libressl-msvc\lib\</OpensslLibDir>
+    <IntDir Condition="'$(GLB_OUT_INT_DIR)'!=''">$(GLB_OUT_INT_DIR)\$(ProjectName)\$(Platform)_$(Configuration)\</IntDir>
+    <LibDir Condition="'$(GLB_OUT_LIB_DIR)'!=''">$(GLB_OUT_LIB_DIR)\$(Platform)_$(Configuration)\</LibDir>
+    <BinDir Condition="'$(GLB_OUT_BIN_DIR)'!=''">$(GLB_OUT_BIN_DIR)\$(Platform)_$(Configuration)\</BinDir>
+    <OpensslIncDir Condition="'$(OPENSSL_INC)'!=''">$(OPENSSL_INC)</OpensslIncDir>
+    <OpensslLibDir Condition="'$(OPENSSL_LIB)'!=''">$(OPENSSL_LIB)\$(Platform)_$(Configuration)\</OpensslLibDir>
+    <OutDir>$(LibDir)</OutDir>
+    <TargetExt>.lib</TargetExt>
+  </PropertyGroup>
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <Optimization>Full</Optimization>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <WarningLevel>Level3</WarningLevel>
+      <ExceptionHandling>Async</ExceptionHandling>
+      <BufferSecurityCheck>false</BufferSecurityCheck>
+      <StringPooling>true</StringPooling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <AdditionalIncludeDirectories>$(OpensslIncDir);</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>_WIN32_WINNT=0x0600;</PreprocessorDefinitions>
+      <ObjectFileName>$(IntDir)</ObjectFileName>
+      <ProgramDataBaseFileName>$(OutDir)$(TargetName).pdb</ProgramDataBaseFileName>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+    </ClCompile>
+    <Lib>
+      <OutputFile>$(OutDir)$(TargetName)$(TargetExt)</OutputFile>
+    </Lib>
+  </ItemDefinitionGroup>
+</Project>

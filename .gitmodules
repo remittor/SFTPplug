@@ -10,3 +10,7 @@
 	path = ext/libssh2
 	url = https://github.com/libssh2/libssh2.git
 	branch = master
+[submodule "ext/StackWalker"]
+	path = ext/StackWalker
+	url = https://github.com/JochenKalmbach/StackWalker.git
+	branch = master
