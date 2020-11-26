@@ -6,6 +6,9 @@
 #include <stdio.h>
 #include <vadefs.h>
 
+#pragma warning(push)
+#pragma warning(disable : 4297)  /* Allow using throw() into noexcept(true) methods */
+
 namespace bst {
 
 static const size_t npos = (size_t)(-1);    /* Non-position */
@@ -560,9 +563,9 @@ protected:
 
         SSIZE_T sz;
         if (is_wstring)
-            sz = vswprintf_s((LPWSTR)m_buf + m_len, slen, (LPCWSTR)fmt, argptr);
+            sz = vswprintf_s((LPWSTR)m_buf + m_len, slen, (LPCWSTR)fmt, args);
         else
-            sz = vsprintf_s((LPSTR)m_buf + m_len, slen, (LPCSTR)fmt, argptr);
+            sz = vsprintf_s((LPSTR)m_buf + m_len, slen, (LPCSTR)fmt, args);
 
         if (sz <= 0 || m_len + sz > m_capacity) {
             m_last_error = e_convert;
@@ -787,7 +790,7 @@ public:
         return res;
     }
 
-    bool assign(const fmt_string<CharT> fmt, ...) noexcept(NT)
+    bool assign_fmt(const string_base & fmt, ...) noexcept(NT)
     {
         va_list argptr;
         va_start(argptr, fmt);
@@ -796,7 +799,7 @@ public:
         return res;
     }
 
-    string_base & append(const fmt_string<CharT> fmt, ...) noexcept(NT)
+    string_base & append_fmt(const string_base & fmt, ...) noexcept(NT)
     {
         va_list argptr;
         va_start(argptr, fmt);
@@ -1306,4 +1309,6 @@ namespace nt {   /* nothrow */
 } /* namespace nt */
 
 } /* namespace bst */
+
+#pragma warning(pop)
 
