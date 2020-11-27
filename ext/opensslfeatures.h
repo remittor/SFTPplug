@@ -24,7 +24,9 @@
 #define OPENSSL_NO_HW_PADLOCK
 #endif
 
+#ifdef NDEBUG
 #define OPENSSL_NO_ERR
+#endif
 
 /*
  * OPENSSL_NO_* flags that currently appear in OpenSSL.
