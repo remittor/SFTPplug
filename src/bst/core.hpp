@@ -188,7 +188,7 @@ protected:
         init(err_type, filename, funcname, err_code, nullptr, nullptr);
         m_messageA = (char *) ::malloc(BST_MAX_EX_MSG_LEN + 2);
         if (m_messageA) {
-            int len = vsprintf_s(m_messageA, BST_MAX_EX_MSG_LEN, message, argptr);
+            int len = _vsnprintf(m_messageA, BST_MAX_EX_MSG_LEN, message, argptr);
             m_messageA[(len < 0) ? 0 : len] = 0;
         }
     }
@@ -207,7 +207,7 @@ protected:
         init(err_type, filename, funcname, err_code, nullptr, nullptr);
         m_messageW = (wchar_t *) ::malloc((BST_MAX_EX_MSG_LEN + 2) * sizeof(wchar_t));
         if (m_messageW) {
-            int len = vswprintf_s(m_messageW, BST_MAX_EX_MSG_LEN, message, argptr);
+            int len = _vsnwprintf(m_messageW, BST_MAX_EX_MSG_LEN, message, argptr);
             m_messageW[(len < 0) ? 0 : len] = 0;
         }
     }

@@ -32,6 +32,28 @@ public:
     }
 
 protected:
+    virtual void OnCallstackEntry(CallstackEntryType eType, CallstackEntry & entry)
+    {
+        CHAR buffer[MAX_NAMELEN];
+        if ((eType != lastEntry) && (entry.offset != 0)) {
+            if (entry.moduleName[0] == 0)
+                strcpy_s(entry.moduleName, _countof(entry.moduleName)-1, "[<module>]");
+            if (entry.name[0] == 0)
+                strcpy_s(entry.name, _countof(entry.name)-1, "(function-name not available)");
+            if (entry.undName[0] != 0)
+                strcpy_s(entry.name, _countof(entry.name)-1, entry.undName);
+            if (entry.undFullName[0] != 0)
+                strcpy_s(entry.name, _countof(entry.name)-1, entry.undFullName);
+            if (entry.lineFileName[0] == 0) {
+                _snprintf_s(buffer, _TRUNCATE, "%p (%s): %s\n", (LPVOID)entry.offset, entry.moduleName, entry.name);
+            } else {
+                _snprintf_s(buffer, _TRUNCATE, "%p (%s): %s (%d): %s\n", (LPVOID)entry.offset, entry.moduleName, entry.lineFileName, entry.lineNumber, entry.name);
+            }
+            buffer[_countof(buffer)-1] = 0;
+            OnOutput(buffer);
+        }
+    }
+
     virtual void OnOutput(LPCSTR szText)
     {
         if (m_cur_depth <= m_max_depth) {
@@ -57,47 +79,24 @@ protected:
     {
         // nothing
     }
-
-    virtual void OnCallstackEntry(CallstackEntryType eType, CallstackEntry & entry)
-    {
-        CHAR buffer[MAX_NAMELEN];
-        if ((eType != lastEntry) && (entry.offset != 0)) {
-            if (entry.moduleName[0] == 0)
-                strcpy_s(entry.moduleName, _countof(entry.moduleName)-1, "[<module>]");
-            if (entry.name[0] == 0)
-                strcpy_s(entry.name, _countof(entry.name)-1, "(function-name not available)");
-            if (entry.undName[0] != 0)
-                strcpy_s(entry.name, _countof(entry.name)-1, entry.undName);
-            if (entry.undFullName[0] != 0)
-                strcpy_s(entry.name, _countof(entry.name)-1, entry.undFullName);
-            if (entry.lineFileName[0] == 0) {
-                _snprintf_s(buffer, _countof(buffer)-1, "%p (%s): %s\n", (LPVOID)entry.offset, entry.moduleName, entry.name);
-            } else {
-                _snprintf_s(buffer, _countof(buffer)-1, "%p (%s): %s (%d): %s\n", (LPVOID)entry.offset, entry.moduleName, entry.lineFileName, entry.lineNumber, entry.name);
-            }
-            buffer[_countof(buffer)-1] = 0;
-            OnOutput(buffer);
-        }
-    }
 };
 
-int ExCatcher::init(const std::exception & ex, LPVOID * pctx) noexcept
+void ExCatcher::init(LPVOID * pctx) noexcept
 {
     m_active = true;
-    m_cppex = ex;
-    return init_cpp_internal(pctx);
-}
+    try {
+        throw;
+    }
+    catch (bst::exception & ex) {
+        m_cppex = ex;
+    }
+    catch (std::exception & ex) {
+        m_cppex = ex;
+    }
+    catch (...) {
+        m_cppex = bst::exception_base<bst::error_t::fatal>(nullptr, nullptr, 0, "Unknown fatal error");
+    }
 
-int ExCatcher::init(const bst::exception & ex, LPVOID * pctx) noexcept
-{
-    m_active = true;
-    m_cppex = ex;
-    return init_cpp_internal(pctx);
-}
-
-int ExCatcher::init_cpp_internal(LPVOID * pctx) noexcept
-{
-    m_active = true;
     if (pctx) {
         PCONTEXT ctx = *(PCONTEXT *)pctx;
         if (ctx) {
@@ -106,18 +105,6 @@ int ExCatcher::init_cpp_internal(LPVOID * pctx) noexcept
             sw.ShowCallstack(GetCurrentThread(), ctx);
         }
     }
-    return 0;
-}
-
-int ExCatcher::init(PEXCEPTION_POINTERS pExp, DWORD dwExpCode) noexcept
-{
-    m_active = true;
-    if (m_trace.empty()) {
-        m_trace.reserve(max_stack_depth * StackWalker::MAX_NAMELEN);
-        StackWalker sw(m_trace);
-        sw.ShowCallstack(GetCurrentThread(), pExp->ContextRecord);
-    }
-    return EXCEPTION_EXECUTE_HANDLER;
 }
 
 int ExCatcher::show(LPCWSTR fmt, ...)
@@ -128,16 +115,16 @@ int ExCatcher::show(LPCWSTR fmt, ...)
         int err_level = BST_LL_ERROR;
         LPCSTR error_level = "";
         switch (m_cppex.error_type()) {
-        case (bst::error_t::critical) : {
-            err_level = BST_LL_CRIT_ERROR;
-            error_level = "CRITICAL";
-            break;
-        }
-        case (bst::error_t::fatal) : {
-            err_level = BST_LL_FATAL_ERROR;
-            error_level = "FATAL";
-            break;
-        }
+            case (bst::error_t::critical) : {
+                err_level = BST_LL_CRIT_ERROR;
+                error_level = "CRITICAL";
+                break;
+            }
+            case (bst::error_t::fatal) : {
+                err_level = BST_LL_FATAL_ERROR;
+                error_level = "FATAL";
+                break;
+            }
         }
         LOGX(err_level, "<<< %s ERROR >>>", error_level);
         if (m_cppex.funcname()) {

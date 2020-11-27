@@ -149,7 +149,9 @@ int Plugin::load_resources(bool forced)
         }
     }
     BST_THROW_IF(rcount < 10, C, 111, "Resource read error");
-    //BST_THROW(C, 100, "Resource read error111");   // test
+    //BST_THROW(C, 100, "Resource read error (TEST)");   // TEST
+    //int * pp = nullptr;   // TEST
+    //*pp = 1;              // TEST
 
     strlcpy( ::s_f7newconnection, get_f7newconnection().c_str(), _countof(::s_f7newconnection));
     wcslcpy( ::s_f7newconnectionW, get_f7newconnectionW().c_str(), _countof(::s_f7newconnectionW));
