@@ -12,5 +12,5 @@
 	branch = master
 [submodule "ext/StackWalker"]
 	path = ext/StackWalker
-	url = https://github.com/JochenKalmbach/StackWalker.git
+	url = https://github.com/remittor/StackWalker.git
 	branch = master
