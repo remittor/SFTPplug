@@ -30,15 +30,12 @@ public:
         show(nullptr);
     }
 
-    void init(LPVOID * pctx) noexcept;
+    void init() noexcept;
     int  show(LPCWSTR fmt, ...);
 
     bool is_active() { return m_active; }
     bool is_showed() { return m_showed; }
 };
-
-extern "C" void** __cdecl __current_exception();
-extern "C" void** __cdecl __current_exception_context();
 
 /* C++ and SEH catcher (required /EHa option) */
 template<typename R, typename F>
@@ -48,7 +45,7 @@ auto invoke(ExCatcher & exc, R eval, F && func)
         return func();
     }
     catch (...) {
-        exc.init(__current_exception_context());
+        exc.init();
     }
     return eval;
 }

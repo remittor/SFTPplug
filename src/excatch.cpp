@@ -88,9 +88,13 @@ protected:
     }
 };
 
-void ExCatcher::init(LPVOID * pctx) noexcept
+void ExCatcher::init() noexcept
 {
     m_active = true;
+    m_trace.reserve(max_stack_depth * StackWalker::MAX_NAMELEN);
+    StackWalker sw(m_trace);
+    sw.ShowCallstack(sw.GetCurrentExceptionContext());
+
     try {
         throw;
     }
@@ -102,15 +106,6 @@ void ExCatcher::init(LPVOID * pctx) noexcept
     }
     catch (...) {
         m_cppex = bst::exception_base<bst::error_t::fatal>(nullptr, nullptr, 0, "Unknown fatal error");
-    }
-
-    if (pctx) {
-        PCONTEXT ctx = *(PCONTEXT *)pctx;
-        if (ctx) {
-            m_trace.reserve(max_stack_depth * StackWalker::MAX_NAMELEN);
-            StackWalker sw(m_trace);
-            sw.ShowCallstack(GetCurrentThread(), ctx);
-        }
     }
 }
 
