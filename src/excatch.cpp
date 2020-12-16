@@ -4,27 +4,23 @@
 
 namespace wfx {
 
-typedef StackWalker  SW;
-
 static const int max_stack_depth = 13;
-static const int swoptions = SW::RetrieveSymbol + SW::RetrieveLine + SW::RetrieveModuleInfo + SW::RetrieveFileVersion;
+static const int swoptions = StackWalkerBase::RetrieveVerbose;
 
-class StackWalker final : public ::StackWalker
+class StackWalker final : public StackWalkerBase
 {
-    friend class ::StackWalker;
+    friend class StackWalkerBase;
 public:
     bst::nt::str & m_trace;
     int m_max_depth;
     int m_cur_depth;
 
-    enum {
-        MAX_NAMELEN = ::StackWalker::STACKWALK_MAX_NAMELEN
-    };
+    enum { MAX_NAMELEN = 2048 };
 
     StackWalker() = delete;
 
     StackWalker(bst::nt::str & trace, int depth = max_stack_depth) noexcept
-      : ::StackWalker(swoptions)
+      : StackWalkerBase(swoptions)
       , m_trace(trace)
     {
         m_max_depth = depth;
@@ -32,29 +28,30 @@ public:
     }
 
 protected:
-    virtual void OnCallstackEntry(CallstackEntryType eType, CallstackEntry & entry)
+    virtual void OnCallstackEntry(const TCallstackEntry & entry) noexcept
     {
         CHAR buffer[MAX_NAMELEN];
-        if ((eType != lastEntry) && (entry.offset != 0)) {
-            if (entry.moduleName[0] == 0)
-                strcpy_s(entry.moduleName, _countof(entry.moduleName)-1, "[<module>]");
-            if (entry.name[0] == 0)
-                strcpy_s(entry.name, _countof(entry.name)-1, "(function-name not available)");
-            if (entry.undName[0] != 0)
-                strcpy_s(entry.name, _countof(entry.name)-1, entry.undName);
-            if (entry.undFullName[0] != 0)
-                strcpy_s(entry.name, _countof(entry.name)-1, entry.undFullName);
-            if (entry.lineFileName[0] == 0) {
-                _snprintf_s(buffer, _TRUNCATE, "%p (%s): %s\n", (LPVOID)entry.offset, entry.moduleName, entry.name);
+        if ((entry.type != lastEntry) && (entry.offset != 0)) {
+            TCallstackEntry e = entry;
+            if (!e.moduleName || e.moduleName[0] == 0)
+                e.moduleName = "[<module>]";
+            if (!e.name || e.name[0] == 0)
+                e.name = "(function-name not available)";
+            if (e.undName && e.undName[0] != 0)
+                e.name = entry.undName;
+            if (e.undFullName && e.undFullName[0] != 0)
+                e.name = e.undFullName;
+            if (!e.lineFileName || e.lineFileName[0] == 0) {
+                _snprintf_s(buffer, _TRUNCATE, "%p (%s): %s\n", (LPVOID)e.offset, e.moduleName, e.name);
             } else {
-                _snprintf_s(buffer, _TRUNCATE, "%p (%s): %s (%d): %s\n", (LPVOID)entry.offset, entry.moduleName, entry.lineFileName, entry.lineNumber, entry.name);
+                _snprintf_s(buffer, _TRUNCATE, "%p (%s): %s (%d): %s\n", (LPVOID)e.offset, e.moduleName, e.lineFileName, e.lineNumber, e.name);
             }
             buffer[_countof(buffer)-1] = 0;
             OnOutput(buffer);
         }
     }
 
-    virtual void OnOutput(LPCSTR szText)
+    virtual void OnOutput(LPCSTR szText) noexcept
     {
         if (m_cur_depth <= m_max_depth) {
             if (m_cur_depth == 0)
@@ -65,17 +62,27 @@ protected:
         }
     }
 
-    virtual void OnLoadModule(LPCSTR img, LPCSTR mod, DWORD64 baseAddr, DWORD size, DWORD result, LPCSTR symType, LPCSTR pdbName, UINT64 fileVersion)
+    virtual void OnShowObject(const TShowObject & data) noexcept
     {
         // nothing
     }
 
-    virtual void OnSymInit(LPCSTR szSearchPath, DWORD symOptions, LPCSTR szUserName)
+    virtual void OnLoadDbgHelp(const TLoadDbgHelp & data) noexcept
     {
         // nothing
     }
 
-    virtual void OnDbgHelpErr(LPCSTR szFuncName, DWORD gle, DWORD64 addr)
+    virtual void OnLoadModule(const TLoadModule & data) noexcept
+    {
+        // nothing
+    }
+
+    virtual void OnSymInit(const TSymInit & data) noexcept
+    {
+        // nothing
+    }
+
+    virtual void OnDbgHelpErr(const TDbgHelpErr & data) noexcept
     {
         // nothing
     }

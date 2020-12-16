@@ -78,7 +78,9 @@ FUNCDEF(LIBSSH2_API int, libssh2_sftp_readdir_ex,(LIBSSH2_SFTP_HANDLE *handle, c
 FUNCDEF(LIBSSH2_API ssize_t, libssh2_sftp_write,(LIBSSH2_SFTP_HANDLE *handle, const char *buffer, size_t count));
 FUNCDEF(LIBSSH2_API int, libssh2_sftp_close_handle,(LIBSSH2_SFTP_HANDLE *handle));
 FUNCDEF(LIBSSH2_API void, libssh2_sftp_seek,(LIBSSH2_SFTP_HANDLE *handle, size_t offset));
+FUNCDEF(LIBSSH2_API void, libssh2_sftp_seek64,(LIBSSH2_SFTP_HANDLE *handle, libssh2_uint64_t offset));
 FUNCDEF(LIBSSH2_API size_t, libssh2_sftp_tell,(LIBSSH2_SFTP_HANDLE *handle));
+FUNCDEF(LIBSSH2_API libssh2_uint64_t, libssh2_sftp_tell64,(LIBSSH2_SFTP_HANDLE *handle));
 FUNCDEF(LIBSSH2_API int, libssh2_sftp_fstat_ex,(LIBSSH2_SFTP_HANDLE *handle, LIBSSH2_SFTP_ATTRIBUTES *attrs, int setstat));
 FUNCDEF(LIBSSH2_API int, libssh2_sftp_rename_ex,(LIBSSH2_SFTP *sftp,  const char *source_filename,    unsigned int srouce_filename_len,const char *dest_filename,      unsigned int dest_filename_len,long flags));
 FUNCDEF(LIBSSH2_API int, libssh2_sftp_unlink_ex,(LIBSSH2_SFTP *sftp, const char *filename, unsigned int filename_len));

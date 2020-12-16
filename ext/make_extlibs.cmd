@@ -16,6 +16,8 @@ copy /y "%EXT_LIB_DIR%\libssh2_cfg.h" "%LIBSSH2_CFG_DIR%\libssh2_cfg.h"
 copy /y "%EXT_LIB_DIR%\libssh2_cfg.h" "%LIBSSH2_SRC%\include\libssh2_cfg.h"
 copy /y "%LIBSSH2_CFG_DIR%\libssh2_config.h" "%LIBSSH2_SRC%\include\libssh2_config.h"
 
+set STKWLK_ANSI=1
+
 set GLB_FAKE_DEBUG=1
 rem /Od = Disabled /O1 = MinSpace /O2 = MaxSpeed /Ox = Full
 set GLB_FAKE_DEBUG_OPT=MinSpace

@@ -29,7 +29,8 @@
   <PropertyGroup Label="Configuration">
     <ConfigurationType>StaticLibrary</ConfigurationType>
     <CharacterSet>MultiByte</CharacterSet>
-    <PlatformToolset>v140</PlatformToolset>
+    <PlatformToolset>v140_xp</PlatformToolset>
+    <PlatformToolset Condition="'$(SFTP_ALLINONE)'=='1'">v140</PlatformToolset>    
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
@@ -40,14 +41,14 @@
   <Import Project="extlibs.vsprops" />
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup>  
-    <SrcDir>$(SolutionDir)\StackWalker\Main\StackWalker\</SrcDir>
+    <SrcDir>$(SolutionDir)\StackWalker\src</SrcDir>
     <SrcDir Condition="'$(STACKWALKER_SRC)'!=''">$(STACKWALKER_SRC)</SrcDir>
   </PropertyGroup>
   <PropertyGroup>
     <_ProjectFileVersion>10.0.20506.1</_ProjectFileVersion>
     <TargetName>$(ProjectName)</TargetName>
   </PropertyGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)'=='Debug'">
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(GLB_FAKE_DEBUG)'=='Debug|' Or '$(Configuration)|$(GLB_FAKE_DEBUG)'=='Debug|0'">
     <ClCompile>
       <RuntimeLibrary Condition="'$(VC_STATIC_RTL)'!='1'">MultiThreadedDebugDLL</RuntimeLibrary>
       <RuntimeLibrary Condition="'$(VC_STATIC_RTL)'=='1'">MultiThreadedDebug</RuntimeLibrary>
@@ -56,7 +57,8 @@
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions Condition="'$(STKWLK_ANSI)'!='1'">_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions Condition="'$(STKWLK_ANSI)'=='1'">_DEBUG;STKWLK_ANSI=1%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(GLB_FAKE_DEBUG)'=='Debug|1'">
@@ -68,7 +70,8 @@
       <BasicRuntimeChecks>Default</BasicRuntimeChecks>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions Condition="'$(STKWLK_ANSI)'!='1'">NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions Condition="'$(STKWLK_ANSI)'=='1'">NDEBUG;STKWLK_ANSI=1%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)'=='Release'">
@@ -76,7 +79,8 @@
       <RuntimeLibrary Condition="'$(VC_STATIC_RTL)'!='1'">MultiThreadedDLL</RuntimeLibrary>
       <RuntimeLibrary Condition="'$(VC_STATIC_RTL)'=='1'">MultiThreaded</RuntimeLibrary>
       <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions Condition="'$(STKWLK_ANSI)'!='1'">NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions Condition="'$(STKWLK_ANSI)'=='1'">NDEBUG;STKWLK_ANSI=1%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemGroup>

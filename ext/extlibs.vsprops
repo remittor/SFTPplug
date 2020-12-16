@@ -26,7 +26,8 @@
       <StringPooling>true</StringPooling>
       <RuntimeTypeInfo>true</RuntimeTypeInfo>
       <AdditionalIncludeDirectories>$(OpensslIncDir);</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>_WIN32_WINNT=0x0600;</PreprocessorDefinitions>
+      <PreprocessorDefinitions Condition="'$(SFTP_ALLINONE)'!='1'">_WIN32_WINNT=0x0501;</PreprocessorDefinitions>
+      <PreprocessorDefinitions Condition="'$(SFTP_ALLINONE)'=='1'">_WIN32_WINNT=0x0600;</PreprocessorDefinitions>
       <ObjectFileName>$(IntDir)</ObjectFileName>
       <ProgramDataBaseFileName>$(OutDir)$(TargetName).pdb</ProgramDataBaseFileName>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
