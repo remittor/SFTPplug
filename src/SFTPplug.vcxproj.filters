@@ -1,14 +1,6 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <Filter Include="Source Files">
-      <UniqueIdentifier>{1a3b92e4-cd8c-4f46-9bf7-c0521b929ac5}</UniqueIdentifier>
-      <Extensions>cpp;c;cxx;rc;def;r;odl;idl;hpj;bat</Extensions>
-    </Filter>
-    <Filter Include="Header Files">
-      <UniqueIdentifier>{8ef7fe85-2e87-44d2-b3e5-926624aaaed1}</UniqueIdentifier>
-      <Extensions>h;hpp;hxx;hm;inl</Extensions>
-    </Filter>
     <Filter Include="Resource Files">
       <UniqueIdentifier>{13f29309-9b4e-4a58-bf17-5fe018ce4364}</UniqueIdentifier>
       <Extensions>ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe</Extensions>
@@ -16,28 +8,29 @@
     <Filter Include="BST">
       <UniqueIdentifier>{8a4c99cf-9dfc-4e92-95eb-e7e2ce05ed69}</UniqueIdentifier>
     </Filter>
+    <Filter Include="utils">
+      <UniqueIdentifier>{33ab2ba4-54cd-49a3-a278-e4ca960aeafc}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="common">
+      <UniqueIdentifier>{87466d1b-5263-496a-bff0-f046b9683bd3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="SCP">
+      <UniqueIdentifier>{06eb891f-3644-4ecd-b79f-5d6fb94e080f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="WFX">
+      <UniqueIdentifier>{1a3b92e4-cd8c-4f46-9bf7-c0521b929ac5}</UniqueIdentifier>
+      <Extensions>cpp;c;cxx;rc;def;r;odl;idl;hpj;bat</Extensions>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="cunicode.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="CVTUTF.C">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="multiserver.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>WFX</Filter>
     </ClCompile>
     <ClCompile Include="sftpfunc.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>WFX</Filter>
     </ClCompile>
     <ClCompile Include="sftpplug.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="utils.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="ftpdir.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>WFX</Filter>
     </ClCompile>
     <ClCompile Include="bst\srw_lock.cpp">
       <Filter>BST</Filter>
@@ -46,49 +39,28 @@
       <Filter>BST</Filter>
     </ClCompile>
     <ClCompile Include="main.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>WFX</Filter>
     </ClCompile>
     <ClCompile Include="excatch.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>WFX</Filter>
     </ClCompile>
     <ClCompile Include="plugin.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>WFX</Filter>
+    </ClCompile>
+    <ClCompile Include="ftpdir.cpp">
+      <Filter>SCP</Filter>
+    </ClCompile>
+    <ClCompile Include="CVTUTF.C">
+      <Filter>utils</Filter>
+    </ClCompile>
+    <ClCompile Include="cunicode.cpp">
+      <Filter>utils</Filter>
+    </ClCompile>
+    <ClCompile Include="utils.cpp">
+      <Filter>utils</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="cunicode.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="CVTUTF.H">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="fsplugin.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="multiserver.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="sftpfunc.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="sshdynfunctions.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="utils.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="res\resource.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="ftpdir.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="sftpplug.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="global.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="bst\bst.hpp">
       <Filter>BST</Filter>
     </ClInclude>
@@ -131,14 +103,47 @@
     <ClInclude Include="bst\logx.hpp">
       <Filter>BST</Filter>
     </ClInclude>
-    <ClInclude Include="excatch.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="ftpdir.h">
+      <Filter>SCP</Filter>
+    </ClInclude>
+    <ClInclude Include="CVTUTF.H">
+      <Filter>utils</Filter>
+    </ClInclude>
+    <ClInclude Include="cunicode.h">
+      <Filter>utils</Filter>
+    </ClInclude>
+    <ClInclude Include="utils.h">
+      <Filter>utils</Filter>
+    </ClInclude>
+    <ClInclude Include="sshdynfunctions.h">
+      <Filter>common</Filter>
     </ClInclude>
     <ClInclude Include="fsplugin.hpp">
-      <Filter>Header Files</Filter>
+      <Filter>common</Filter>
+    </ClInclude>
+    <ClInclude Include="fsplugin.h">
+      <Filter>common</Filter>
+    </ClInclude>
+    <ClInclude Include="global.h">
+      <Filter>common</Filter>
+    </ClInclude>
+    <ClInclude Include="excatch.h">
+      <Filter>WFX</Filter>
+    </ClInclude>
+    <ClInclude Include="multiserver.h">
+      <Filter>WFX</Filter>
     </ClInclude>
     <ClInclude Include="plugin.h">
-      <Filter>Header Files</Filter>
+      <Filter>WFX</Filter>
+    </ClInclude>
+    <ClInclude Include="sftpfunc.h">
+      <Filter>WFX</Filter>
+    </ClInclude>
+    <ClInclude Include="sftpplug.h">
+      <Filter>WFX</Filter>
+    </ClInclude>
+    <ClInclude Include="res\resource.h">
+      <Filter>common</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
