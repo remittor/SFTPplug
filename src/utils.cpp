@@ -279,7 +279,7 @@ bool CreateIsoDateString(LPFILETIME ft, LPSTR buf)
     SYSTEMTIME dt;
     if (FileTimeToSystemTime(&ft2, &dt) == FALSE)
         return false;
-    int rc = sprintf(buf, "%04u%02u%02u%02u%02u", dt.wYear, dt.wDay, dt.wHour, dt.wMinute, dt.wSecond);
+    int rc = sprintf(buf, "%04u%02u%02u%02u%02u%02u", dt.wYear, dt.wMonth, dt.wDay, dt.wHour, dt.wMinute, dt.wSecond);
     return (rc > 0) ? true : false;
 }
 
