@@ -119,6 +119,61 @@ LPWSTR ReplaceSlashByBackslashW(LPWSTR thedir)
     return thedir;
 }
 
+namespace cipher {
+
+static const char g_pszKey[] = "unpzScGeCInX7XcRM2z+svTK+gegRLhz9KXVbYKJl5boSvVCcfym";
+
+bool EncryptString(bst::c_str & src, bst::str & dst)
+{
+    dst.reserve(src.length() * 3 + 2);
+    dst.clear();
+    const size_t iKeyLength = sizeof(g_pszKey);
+    const size_t iPos = src.length() % iKeyLength;
+    for (size_t i = 0; i < src.length(); i++) {
+        int num = (BYTE)src[i] ^ (BYTE)g_pszKey[(i + iPos) % iKeyLength];
+        sprintf_s(dst.data() + i*3, 4, "%03d", num);
+    }
+    dst.fix_length();
+    return true;
+}
+
+bool DecryptString(bst::c_str & src, bst::str & dst, bool CryptProc)
+{
+    int hr = 0;
+    dst.clear();
+    if (src.equal("!")) {   // signal password-protected password
+        if (CryptProc)
+            dst = "\001";
+        return true;
+    }
+    size_t dlen = src.length() / 3;
+    dst.reserve(dlen + 2);
+    const size_t iKeyLength = sizeof(g_pszKey);
+    const size_t iPos = dlen % iKeyLength;
+    for (size_t i = 0; i < dlen; i++) {
+        int iDigit = src[i*3];
+        if (iDigit < '0' || iDigit > '9')
+            return false;
+        int iNumber = (iDigit - '0') * 100;
+
+        iDigit = src[i*3 + 1];
+        if (iDigit < '0' || iDigit > '9')
+            return false;
+        iNumber += (iDigit - '0') * 10;
+
+        iDigit = src[i*3 + 2];
+        if (iDigit < '0' || iDigit > '9')
+            return false;
+        iNumber += iDigit - '0';
+
+        dst[i] = (char)iNumber ^ g_pszKey[(i + iPos) % iKeyLength];
+        dst[i + 1] = 0;
+    }
+    return true;
+} 
+
+} // namespace
+
 
 typedef UINT64 (WINAPI * tGetTickCount64) (void);
 tGetTickCount64  fnGetTickCount64 = NULL;

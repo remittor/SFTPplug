@@ -27,6 +27,11 @@ LPWSTR ReplaceBackslashBySlashW(LPWSTR thedir);
 LPSTR  ReplaceSlashByBackslash(LPSTR thedir);
 LPWSTR ReplaceSlashByBackslashW(LPWSTR thedir);
 
+namespace cipher {
+bool EncryptString(bst::c_str & src, bst::str & dst);
+bool DecryptString(bst::c_str & src, bst::str & dst, bool CryptProc = true);
+}
+
 
 /* Time functions */
 
