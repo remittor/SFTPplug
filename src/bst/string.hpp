@@ -501,7 +501,7 @@ protected:
     BST_NOINLINE
     bool assign_fmt_internal(const CharT * fmt, va_list args) noexcept(NT)
     {
-        if (!s) {
+        if (!fmt) {
             destroy();
             return true;
         }
@@ -785,7 +785,7 @@ public:
     {
         va_list argptr;
         va_start(argptr, fmt);
-        bool res = assign_fmt_internal(fmt, argptr, 0);
+        bool res = assign_fmt_internal(fmt, argptr);
         va_end(argptr);
         return res;
     }
@@ -794,7 +794,7 @@ public:
     {
         va_list argptr;
         va_start(argptr, fmt);
-        bool res = assign_fmt_internal(fmt.c_str(), argptr, 0);
+        bool res = assign_fmt_internal(fmt.c_str(), argptr);
         va_end(argptr);
         return res;
     }

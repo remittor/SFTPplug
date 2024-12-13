@@ -42,6 +42,9 @@
 
 namespace bst {
 
+struct nothrow_t { };
+const nothrow_t nothrow = {};
+
 enum class error_t : char {
     non_error = 0,
     internal  = 1,
