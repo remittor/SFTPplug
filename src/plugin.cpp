@@ -777,7 +777,7 @@ File Plugin::RenMovFile(LPCWSTR OldName, LPCWSTR NewName, bool Move, bool OverWr
     return File::NotFound;
 }
 
-static void RemoveInalidChars(LPSTR p)
+static void RemoveInvalidChars(LPSTR p)
 {
     while (p[0]) {
         if ((UCHAR)p[0] < 32)
@@ -788,7 +788,7 @@ static void RemoveInalidChars(LPSTR p)
     }
 }
 
-static void RemoveInalidChars(LPWSTR p)
+static void RemoveInvalidChars(LPWSTR p)
 {
     while (p[0]) {
         if ((WORD)p[0] < 32)
@@ -811,7 +811,7 @@ File Plugin::GetFile(File & eval, LPCWSTR RemoteName, LPWSTR LocalName, CopyFlag
 
     LPWSTR p = wcsrchr(LocalName, '\\');
     if (p)
-        RemoveInalidChars(p + 1);  // Changes the name passed in!
+        RemoveInvalidChars(p + 1);  // Changes the name passed in!
 
     bst::wsfp LocalNameEx = LocalName;
     LocalNameEx.make_path();
