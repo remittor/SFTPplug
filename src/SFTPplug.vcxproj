@@ -90,8 +90,10 @@
   <ItemGroup>
     <ClCompile Include="bst\logx.cpp" />
     <ClCompile Include="bst\srw_lock.cpp" />
+    <ClCompile Include="cfg.cpp" />
     <ClCompile Include="cunicode.cpp" />
     <ClCompile Include="CVTUTF.C" />
+    <ClCompile Include="dialogs.cpp" />
     <ClCompile Include="excatch.cpp" />
     <ClCompile Include="ftpdir.cpp" />
     <ClCompile Include="main.cpp" />
@@ -116,8 +118,10 @@
     <ClInclude Include="bst\scope_guard.hpp" />
     <ClInclude Include="bst\srw_lock.hpp" />
     <ClInclude Include="bst\string.hpp" />
+    <ClInclude Include="cfg.h" />
     <ClInclude Include="cunicode.h" />
     <ClInclude Include="CVTUTF.H" />
+    <ClInclude Include="dialogs.h" />
     <ClInclude Include="excatch.h" />
     <ClInclude Include="fsplugin.h" />
     <ClInclude Include="fsplugin.hpp" />

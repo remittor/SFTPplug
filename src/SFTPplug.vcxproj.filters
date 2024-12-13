@@ -59,6 +59,12 @@
     <ClCompile Include="utils.cpp">
       <Filter>utils</Filter>
     </ClCompile>
+    <ClCompile Include="cfg.cpp">
+      <Filter>WFX</Filter>
+    </ClCompile>
+    <ClCompile Include="dialogs.cpp">
+      <Filter>WFX</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="bst\bst.hpp">
@@ -144,6 +150,12 @@
     </ClInclude>
     <ClInclude Include="res\resource.h">
       <Filter>common</Filter>
+    </ClInclude>
+    <ClInclude Include="cfg.h">
+      <Filter>WFX</Filter>
+    </ClInclude>
+    <ClInclude Include="dialogs.h">
+      <Filter>WFX</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

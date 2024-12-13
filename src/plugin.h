@@ -66,6 +66,8 @@ public:
     int GetFileChecksumResult(bool WantResult, HANDLE ChecksumHandle, LPCWSTR RemoteName, LPSTR checksum, int maxlen);
 
     UINT get_main_thread_id() { return m_main_thread_id; }
+    bool is_quick_connect(bst::c_str & name)  { return name.equal(get_quickconnect()); }
+    bool is_quick_connect(bst::c_wstr & name) { return name.equal(get_quickconnectW()); }
 
 public:
     DWORD           m_main_thread_id = 0;
@@ -141,6 +143,8 @@ public:
 
     //wfx::cfg      m_cfg;
     //wfx::inicfg   m_inicfg;
+
+    int             m_focus_set = 0;
 
 public:
 
